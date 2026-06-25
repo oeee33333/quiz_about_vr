@@ -1,21 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Site - webdev01-team12</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .box { text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        p { color: #666; }
-        .team { color: #007acc; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Interaction Testbed</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #000; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #game { position: absolute; inset: 0; }
+    #game canvas { display: block; width: 100%; height: 100%; }
+
+    #crosshair {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px; height: 10px;
+      border: 2px solid rgba(255,255,255,0.9);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #prompt {
+      position: absolute; left: 50%; bottom: 18%;
+      transform: translateX(-50%);
+      padding: 0.55rem 1rem;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 1rem;
+      pointer-events: none;
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    #floor-menu {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      min-width: 260px;
+      z-index: 20;
+      text-align: center;
+    }
+    #floor-menu h3 { margin: 0 0 0.75rem; font-weight: 600; }
+    #floor-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+    #floor-buttons button {
+      padding: 0.6rem 0.9rem;
+      border: none; border-radius: 8px;
+      background: #007acc; color: #fff;
+      cursor: pointer; font-size: 0.95rem;
+    }
+    #floor-buttons button:hover { background: #005f9e; }
+
+    #debug-help {
+      position: absolute; left: 12px; top: 12px;
+      background: rgba(0,0,0,0.5);
+      color: #eee;
+      padding: 0.7rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      pointer-events: none;
+      z-index: 10;
+      max-width: 280px;
+    }
+    #debug-help kbd {
+      background: rgba(255,255,255,0.2);
+      padding: 0.05rem 0.35rem;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+
+    #start-screen {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.78);
+      color: #fff;
+      z-index: 30;
+      text-align: center;
+    }
+    #start-screen h1 { margin: 0 0 0.5rem; }
+    #start-screen p { margin: 0.25rem 0; color: #ccc; }
+    #start-screen .hint { margin-top: 1rem; font-size: 0.9rem; color: #aaa; }
+
+    .hidden { display: none !important; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
 </head>
 <body>
-    <div class="box">
-        <h1>Hello, <span class="team">Team webdev01-team12</span>!</h1>
-        <p>Start editing <code>index.html</code> to build your website.</p>
-    </div>
+  <div id="game"></div>
+  <div id="crosshair"></div>
+  <div id="prompt" class="hidden"></div>
+  <div id="floor-menu" class="hidden">
+    <h3>Select a destination</h3>
+    <div id="floor-buttons"></div>
+  </div>
+  <div id="debug-help">
+    <strong>Debug keys</strong><br>
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk<br>
+    <kbd>Space</kbd> jump<br>
+    <kbd>W</kbd><kbd>S</kbd> car throttle, mouse steers<br>
+    <kbd>E</kbd> interact / enter-exit car<br>
+    <kbd>1</kbd>-<kbd>4</kbd> select elevator floor<br>
+    <kbd>R</kbd> reset hinge door<br>
+    <kbd>C</kbd> close garage door (debug)<br>
+    Mouse to look around
+  </div>
+  <div id="start-screen">
+    <h1>3D Interaction Testbed</h1>
+    <p>Click anywhere to lock the mouse and start.</p>
+    <p class="hint">Walk up to the hinge door to push it open.<br>Use <kbd>E</kbd> on the elevator, garage, and car.<br>Try the parkour steps and watch the final one!</p>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

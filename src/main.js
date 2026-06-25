@@ -8,6 +8,7 @@ import { Ladder } from './Ladder.js';
 import { GarageDoor } from './GarageDoor.js';
 import { Car } from './Car.js';
 import { Truck } from './Truck.js';
+import { RoadBlock } from './RoadBlock.js';
 import { PLAYER_HEIGHT, PLAYER_RADIUS, WORLD_SIZE } from './constants.js';
 import { GAME_CONFIG } from './gameConfig.js';
 
@@ -94,6 +95,7 @@ let garageInstances = [];
 let correctGarageIndex = -1;
 let carInstance = null;
 let drivingCar = false;
+let roadBlocks = [];
 const GOAL_X = 110;
 
 const SPAWN_POS = new THREE.Vector3(-40, GAME_CONFIG.spawnY + PLAYER_HEIGHT, 0);
@@ -218,6 +220,7 @@ function clearLevel() {
     if (g.truck) scene.remove(g.truck.group);
     if (g.car) scene.remove(g.car.group);
   }
+  for (const block of roadBlocks) scene.remove(block.group);
 
   levelMeshes = [];
   labelMeshes = [];
@@ -239,6 +242,7 @@ function clearLevel() {
   correctGarageIndex = -1;
   carInstance = null;
   drivingCar = false;
+  roadBlocks = [];
 }
 
 function buildParkour(q1) {
@@ -371,10 +375,11 @@ function buildSecondBuilding(q3, q4) {
   // Road barriers on both sides for z beyond the garages/building
   const barrierZStart = 12;
   const barrierZEnd = roadZMax;
-  const barrierCenterZ = (barrierZStart + barrierZEnd) / 2;
-  const barrierLength = barrierZEnd - barrierZStart;
-  createBox(scene, 45, B2_GROUND_Y + 0.6, barrierCenterZ, 0.4, 1.2, barrierLength, 0xffaa00);
-  createBox(scene, 57, B2_GROUND_Y + 0.6, barrierCenterZ, 0.4, 1.2, barrierLength, 0xffaa00);
+  const barrierSpacing = 6;
+  for (let bz = barrierZStart; bz <= barrierZEnd; bz += barrierSpacing) {
+    roadBlocks.push(new RoadBlock(scene, 45, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
+    roadBlocks.push(new RoadBlock(scene, 57, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
+  }
 
   // Side walls
   createBox(scene, (b2MinX + b2MaxX) / 2, wallHeight / 2, -b2Z,
@@ -597,14 +602,14 @@ startScreen.addEventListener('click', () => {
   if (!gameStarted) {
     gameStarted = true;
     respawn();
-  } else if (!dead && !completed) {
+  } else if (!dead && !completed && !drivingCar) {
     player.lock();
   }
 });
 
 player.controls.addEventListener('lock', () => startScreen.classList.add('hidden'));
 player.controls.addEventListener('unlock', () => {
-  if (!dead && !completed && gameStarted) {
+  if (!dead && !completed && gameStarted && !drivingCar) {
     startScreen.classList.remove('hidden');
   }
 });
@@ -882,7 +887,7 @@ function animate() {
       const throttle = Number(player.moveForward) - Number(player.moveBackward);
       const steering = Number(player.moveRight) - Number(player.moveLeft);
       carInstance.setInput(throttle, steering);
-      carInstance.update(dt);
+      carInstance.update(dt, roadBlocks);
       if (carInstance.group.position.x >= GOAL_X) {
         complete();
       }

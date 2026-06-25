@@ -706,10 +706,15 @@ document.addEventListener('keydown', (event) => {
     }
 
     // Open an elevator
-    for (const elevator of elevators) {
+    for (let i = 0; i < elevators.length; i++) {
+      const elevator = elevators[i];
       if (elevator.isPlayerAtFront(playerPos) && !elevator.traveling && !elevator.departing) {
         elevator.openDoors();
         currentElevator = elevator;
+        if (i !== correctElevatorIndex && !pendingDeathReason) {
+          const wrongAnswer = scrambledQuestions[2].answers[i];
+          pendingDeathReason = `Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`;
+        }
         if (elevator.floors.length > 0) {
           buildFloorMenu(elevator);
         }

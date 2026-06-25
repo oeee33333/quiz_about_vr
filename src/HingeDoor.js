@@ -9,18 +9,18 @@ export class HingeDoor {
     scene.add(this.group);
 
     const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
-    const leafMat = new THREE.MeshLambertMaterial({ color: 0xa06b3e });
+    const leafMat = new THREE.MeshLambertMaterial({ color: 0xa06b3e, side: THREE.DoubleSide });
     const darkMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
 
     // Frame
-    const postGeo = new THREE.BoxGeometry(0.2, 2.4, 0.2);
+    const postGeo = new THREE.BoxGeometry(0.2, 2.6, 0.2);
     const leftPost = new THREE.Mesh(postGeo, woodMat);
-    leftPost.position.set(-1.1, 1.2, 0);
+    leftPost.position.set(-1.1, 1.3, 0);
     const rightPost = new THREE.Mesh(postGeo, woodMat);
-    rightPost.position.set(1.1, 1.2, 0);
+    rightPost.position.set(1.1, 1.3, 0);
     const topGeo = new THREE.BoxGeometry(2.4, 0.2, 0.2);
     const top = new THREE.Mesh(topGeo, woodMat);
-    top.position.set(0, 2.5, 0);
+    top.position.set(0, 2.6, 0);
     this.group.add(leftPost, rightPost, top);
 
     // Hinge pivot on the left side
@@ -29,22 +29,23 @@ export class HingeDoor {
     this.group.add(this.pivot);
 
     // Door leaf
-    const leafGeo = new THREE.BoxGeometry(2, 2.2, 0.1);
+    const leafGeo = new THREE.BoxGeometry(2, 2.5, 0.1);
     this.leaf = new THREE.Mesh(leafGeo, leafMat);
-    this.leaf.position.set(1, 1.1, 0);
+    this.leaf.position.set(1, 1.25, 0);
     this.pivot.add(this.leaf);
 
     // Handle
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.06), darkMat);
-    handle.position.set(1.7, 1.1, 0.1);
+    handle.position.set(1.7, 1.25, 0.1);
     this.pivot.add(handle);
 
     this.angle = 0;
     this.targetAngle = 0;
+    this.openDir = 1; // +1 opens inward, -1 opens outward
   }
 
   push() {
-    this.targetAngle = Math.PI / 2 + 0.25; // ~103 degrees
+    this.targetAngle = this.openDir * (Math.PI / 2 + 0.25); // ~103 degrees
   }
 
   reset() {
@@ -53,7 +54,7 @@ export class HingeDoor {
 
   getObstacleBox() {
     // Once the door is mostly open it stops colliding
-    if (this.angle > 0.6) return null;
+    if (Math.abs(this.angle) > 0.6) return null;
     this.leaf.updateWorldMatrix(true, false);
     return new THREE.Box3().setFromObject(this.leaf);
   }

@@ -33,6 +33,38 @@
       white-space: nowrap;
     }
 
+    #question-ui {
+      position: absolute; left: 50%; top: 8%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      padding: 0.9rem 1.4rem;
+      border-radius: 10px;
+      text-align: center;
+      z-index: 15;
+      pointer-events: none;
+      max-width: 80%;
+    }
+    #question-ui h2 { margin: 0 0 0.4rem; font-size: 1.15rem; }
+    #question-ui p { margin: 0; font-size: 1rem; color: #eee; }
+
+    #death-screen, #complete-screen {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.82);
+      color: #fff;
+      z-index: 40;
+      text-align: center;
+      padding: 2rem;
+    }
+    #death-screen.show, #complete-screen.show { display: flex; }
+    #death-screen h1 { color: #ff5555; margin: 0 0 0.5rem; }
+    #complete-screen h1 { color: #55ff55; margin: 0 0 0.5rem; }
+    #death-screen p, #complete-screen p { max-width: 520px; margin: 0.4rem 0; color: #ddd; line-height: 1.5; }
+    #death-screen .reason { font-size: 1.1rem; color: #fff; margin-top: 0.8rem; }
+    #death-screen .hint { margin-top: 1.2rem; font-size: 0.95rem; color: #aaa; }
+
     #floor-menu {
       position: absolute; left: 50%; top: 50%;
       transform: translate(-50%, -50%);
@@ -114,27 +146,38 @@
   <div id="game"></div>
   <div id="crosshair"></div>
   <div id="prompt" class="hidden"></div>
-  <div id="floor-menu" class="hidden">
-    <h3>Select a destination</h3>
-    <div id="floor-buttons"></div>
+  <div id="question-ui" class="hidden">
+    <h2 id="question-label">Question</h2>
+    <p id="question-text"></p>
   </div>
-  <div id="notify"></div>
+
+  <div id="death-screen">
+    <h1>You died!</h1>
+    <p id="death-reason" class="reason"></p>
+    <p class="hint">Press <kbd>R</kbd> to respawn. The answers will be scrambled again.</p>
+  </div>
+
+  <div id="complete-screen">
+    <h1>Level complete!</h1>
+    <p>You reached the end of the prototype bridge.</p>
+    <p class="hint">Press <kbd>R</kbd> to play again with scrambled answers.</p>
+  </div>
+
+  <div id="prompt" class="hidden"></div>
+
   <div id="debug-help">
-    <strong>Debug keys</strong><br>
+    <strong>Controls</strong><br>
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk<br>
     <kbd>Space</kbd> jump<br>
-    <kbd>W</kbd><kbd>S</kbd> car throttle, mouse steers<br>
-    <kbd>E</kbd> interact / enter-exit car<br>
-    <kbd>1</kbd>-<kbd>4</kbd> select elevator floor<br>
-    <kbd>R</kbd> reset hinge door<br>
-    <kbd>C</kbd> close garage door (debug)<br>
-    <kbd>L</kbd> toggle elevator ladder debug<br>
-    Mouse to look around
+    <kbd>Mouse</kbd> look around<br>
+    <kbd>R</kbd> respawn<br>
+    Walk into a door to push it open
   </div>
+
   <div id="start-screen">
-    <h1>3D Interaction Testbed</h1>
+    <h1>Multiple Choice Sky Parkour</h1>
     <p>Click anywhere to lock the mouse and start.</p>
-    <p class="hint">Walk up to the hinge door to push it open.<br>Use <kbd>E</kbd> on the elevator, garage, and car.<br>Try the parkour steps and watch the final one!</p>
+    <p class="hint">Navigate the floating platforms and choose wisely.<br>Wrong answers move away or open onto nothing.<br>Use <kbd>R</kbd> to respawn if you fall.</p>
   </div>
 
   <script type="module" src="./src/main.js"></script>

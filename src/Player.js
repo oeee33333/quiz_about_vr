@@ -119,12 +119,15 @@ export class Player {
       }
     }
 
-    const floorY = landingFloor ? landingFloor.max.y : 0;
-
-    if (pos.y <= floorY + PLAYER_HEIGHT && pos.y >= floorY - 0.5 && this.velocity.y <= 0) {
-      pos.y = floorY + PLAYER_HEIGHT;
-      this.velocity.y = 0;
-      this.canJump = true;
+    if (landingFloor) {
+      const floorY = landingFloor.max.y;
+      if (pos.y <= floorY + PLAYER_HEIGHT && pos.y >= floorY - 0.5 && this.velocity.y <= 0) {
+        pos.y = floorY + PLAYER_HEIGHT;
+        this.velocity.y = 0;
+        this.canJump = true;
+      } else {
+        this.canJump = false;
+      }
     } else {
       this.canJump = false;
     }

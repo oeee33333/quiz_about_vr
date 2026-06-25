@@ -99,6 +99,9 @@ let roadBlocks = [];
 let finalTruck = null;
 let finalTruckSpawned = false;
 let finalTruckDir = 0;
+let carExitAnim = null;
+let lastGroundY = 0;
+const MAX_FALL_DISTANCE = 8;
 const GOAL_Z = 110;
 const FINAL_TRUCK_Z_SPAWN = -20;
 const FINAL_TRUCK_TRIGGER_Z = 50;
@@ -252,6 +255,7 @@ function clearLevel() {
   finalTruck = null;
   finalTruckSpawned = false;
   finalTruckDir = 0;
+  carExitAnim = null;
 }
 
 function buildParkour(q1) {
@@ -427,7 +431,7 @@ function buildSecondBuilding(q3, q4) {
   }
 
   // Question sign for the elevator choice (outside, faces spawn/-x)
-  createLabel(scene, q3.prompt, b2MaxX + 0.3, B2_TOP_Y + 6.5, 0, -Math.PI / 2, 3.5, {
+  createLabel(scene, q3.prompt, b2MaxX + 1.0, B2_TOP_Y + 6.5, 0, -Math.PI / 2, 3.5, {
     width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
   });
 
@@ -452,7 +456,7 @@ function buildSecondBuilding(q3, q4) {
       const q4Label = createLabelMesh(q4.prompt, 1.0, {
         width: 320, height: 80, font: 'bold 16px system-ui, sans-serif'
       });
-      q4Label.position.set(0, 2.0, -1.08);
+      q4Label.position.set(0, 2.0, -1.0);
       elevator.group.add(q4Label);
     }
     elevators.push(elevator);
@@ -460,20 +464,25 @@ function buildSecondBuilding(q3, q4) {
     const ladder = new Ladder(elevator.group);
     ladders.push(ladder);
 
-    createLabel(scene, q3.answers[i].text, b2MaxX + 0.3, B2_TOP_Y + 4.2, elevatorZs[i], -Math.PI / 2, 1.6);
+    createLabel(scene, q3.answers[i].text, b2MaxX + 1.0, B2_TOP_Y + 4.2, elevatorZs[i], -Math.PI / 2, 1.6);
   }
 }
 
 function buildRoadMC(q6) {
   // Sign at the 30% mark facing -z (toward the oncoming car).
   // Left lane = +x side of the road, right lane = -x side.
-  createLabel(scene, q6.prompt, 51, B2_GROUND_Y + 5.5, FINAL_SIGN_Z, Math.PI, 3.0, {
+  createLabel(scene, q6.prompt, 51, B2_GROUND_Y + 9.5, FINAL_SIGN_Z, Math.PI, 3.0, {
     width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
   });
-  createLabel(scene, q6.answers[0].text, 54, B2_GROUND_Y + 3.5, FINAL_SIGN_Z, Math.PI, 1.8);
-  createLabel(scene, 'LEFT LANE', 54, B2_GROUND_Y + 5.0, FINAL_SIGN_Z, Math.PI, 1.0);
-  createLabel(scene, q6.answers[1].text, 48, B2_GROUND_Y + 3.5, FINAL_SIGN_Z, Math.PI, 1.8);
-  createLabel(scene, 'RIGHT LANE', 48, B2_GROUND_Y + 5.0, FINAL_SIGN_Z, Math.PI, 1.0);
+  createLabel(scene, q6.answers[0].text, 54, B2_GROUND_Y + 7.5, FINAL_SIGN_Z, Math.PI, 1.8);
+  createLabel(scene, 'LEFT LANE', 54, B2_GROUND_Y + 9.0, FINAL_SIGN_Z, Math.PI, 1.0);
+  createLabel(scene, q6.answers[1].text, 48, B2_GROUND_Y + 7.5, FINAL_SIGN_Z, Math.PI, 1.8);
+  createLabel(scene, 'RIGHT LANE', 48, B2_GROUND_Y + 9.0, FINAL_SIGN_Z, Math.PI, 1.0);
+
+  // Big finish sign at the end of the road pointing -z
+  createLabel(scene, 'FINISH', 51, B2_GROUND_Y + 10, GOAL_Z - 1, Math.PI, 7.0, {
+    width: 512, height: 128, font: 'bold 64px system-ui, sans-serif'
+  });
 }
 
 function buildGarages(q5) {
@@ -519,7 +528,7 @@ function buildGarages(q5) {
 
   // Question sign above the garages
   createLabel(scene, q5.prompt,
-    garageX + garageDepth / 2 + 0.3, B2_GROUND_Y + garageHeight + 3.0, 0,
+    garageX + garageDepth / 2 + 0.3, B2_GROUND_Y + garageHeight + 6.5, 0,
     Math.PI / 2, 3.5, {
       width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
     });
@@ -574,6 +583,7 @@ function resetPlayer() {
   camera.rotation.copy(SPAWN_ROT);
   player.velocity.set(0, 0, 0);
   player.enabled = true;
+  lastGroundY = camera.position.y;
 }
 
 function respawn() {
@@ -647,11 +657,12 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'KeyE' && gameStarted && !dead && !completed && !elevatorRideActive) {
     const playerPos = camera.getWorldPosition(new THREE.Vector3());
 
-    // Enter the car if it is available
-    if (!drivingCar && carInstance) {
+    // Enter the car if it is available and not still rolling out
+    if (!drivingCar && carInstance && !carExitAnim) {
       const dist = playerPos.distanceTo(carInstance.group.position);
       if (dist < 3.5) {
         drivingCar = true;
+        carExitAnim = null;
         carInstance.enter(camera);
         player.enabled = false;
         player.controls.unlock();
@@ -666,8 +677,19 @@ document.addEventListener('keydown', (event) => {
         g.triggered = true;
         g.door.open();
         if (g.isCorrect) {
-          g.car = new Car(scene, 51, garageZFromIndex(i), Math.PI, 0xcc2222);
+          const startZ = garageZFromIndex(i);
+          // Start inside the garage, facing out toward the road (+x)
+          g.car = new Car(scene, 42, startZ, -Math.PI / 2, 0xcc2222);
           carInstance = g.car;
+          carExitAnim = {
+            car: g.car,
+            startX: 42,
+            targetX: 51,
+            startTime: performance.now(),
+            driveDuration: 1500,
+            turnDuration: 800,
+            phase: 'drive'
+          };
           setPrompt('Get in the car and drive to the goal');
         } else {
           g.truck = new Truck(scene, 39, garageZFromIndex(i), Math.PI / 2);
@@ -766,19 +788,107 @@ function animate() {
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // World animations always run so the player can watch death sequences.
+  // ---------------------------------------------------------------------------
+
+  // Parkour step movement (visual only; death reasons handled below when alive)
+  for (let i = 0; i < parkourSteps.length; i++) {
+    const step = parkourSteps[i];
+    step.update(dt, playerPos, player.velocity.y);
+    if (step.triggered) {
+      step.group.position.z += (step.slideDir || 1) * 12 * dt;
+    }
+  }
+
+  // Doors animate regardless of death
+  for (const door of doorInstances) {
+    door.update(dt, playerPos);
+  }
+
+  // Elevators and ladders animate regardless of death
+  for (let i = 0; i < elevators.length; i++) {
+    const elevator = elevators[i];
+    const ladder = ladders[i];
+
+    const lastY = elevator.group.position.y;
+    elevator.update(dt, playerPos);
+
+    if (elevatorRideActive && elevator === currentElevator) {
+      camera.position.y += elevator.group.position.y - lastY;
+    }
+
+    // Ladder animation
+    const isWrongElevator = i !== correctElevatorIndex;
+    const isWrongFloorArrival = (i === correctElevatorIndex) && (Math.abs(elevator.group.position.y - B2_SECOND_Y) < 0.1);
+    const shouldLadderFall = isWrongElevator || isWrongFloorArrival;
+
+    if (shouldLadderFall && elevator.doorOpen > 0.05 && !ladder.active) {
+      ladder.spawn(elevator.isPlayerInside(playerPos));
+    }
+
+    if (ladder.active) {
+      ladder.update(dt, elevator.doorOpen);
+    }
+
+    if (elevator.doorOpen < 0.05) {
+      ladder.hide();
+      ladderHitNotified = false;
+    }
+  }
+
+  // Garage doors and wrong-garage trucks animate regardless of death
+  for (let i = 0; i < garageInstances.length; i++) {
+    const g = garageInstances[i];
+    g.door.update(dt);
+
+    if (g.truck && g.truckActive) {
+      g.truck.group.position.x += 22 * dt;
+      g.truck.group.updateWorldMatrix(true, false);
+    }
+  }
+
+  // Car exit animation
+  if (carExitAnim) {
+    const anim = carExitAnim;
+    const now = performance.now();
+    if (anim.phase === 'drive') {
+      const t = Math.min((now - anim.startTime) / anim.driveDuration, 1);
+      const ease = t * (2 - t); // ease out
+      anim.car.group.position.x = anim.startX + (anim.targetX - anim.startX) * ease;
+      if (t >= 1) {
+        anim.phase = 'turn';
+        anim.startTime = now;
+      }
+    } else if (anim.phase === 'turn') {
+      const t = Math.min((now - anim.startTime) / anim.turnDuration, 1);
+      const startRot = -Math.PI / 2;
+      const endRot = -Math.PI; // 90-degree clockwise turn, ends facing road direction (+z)
+      anim.car.group.rotation.y = startRot + (endRot - startRot) * t;
+      if (t >= 1) {
+        carExitAnim = null;
+      }
+    }
+  }
+
+  // Final truck animation
+  if (finalTruck) {
+    finalTruck.group.position.z += finalTruckDir * 55 * dt;
+    finalTruck.group.updateWorldMatrix(true, false);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Gameplay updates only while alive and not completed.
+  // ---------------------------------------------------------------------------
   if (!dead && !completed) {
     // Stage progression
     if (stage === 0 && playerPos.x > -16) stage = 1;
     if (stage === 1 && playerPos.x > 52) stage = 2;
     if (stage === 3 && groundFloorArrived) stage = 4;
 
-    // Parkour step updates and trap detection
+    // Parkour trap death reason
     for (let i = 0; i < parkourSteps.length; i++) {
       const step = parkourSteps[i];
-      step.update(dt, playerPos, player.velocity.y);
-      if (step.triggered) {
-        step.group.position.z += (step.slideDir || 1) * 12 * dt;
-      }
       if (step.triggered && i === trickyStepIndex && !pendingDeathReason) {
         const wrongAnswer = scrambledQuestions[0].answers[i];
         pendingDeathReason = `Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`;
@@ -788,7 +898,6 @@ function animate() {
     // Door open detection
     for (let i = 0; i < doorInstances.length; i++) {
       const door = doorInstances[i];
-      door.update(dt, playerPos);
       if (!doorTriggered[i] && door.angle > 0.35) {
         doorTriggered[i] = true;
         const answer = scrambledQuestions[1].answers[i];
@@ -798,17 +907,9 @@ function animate() {
       }
     }
 
-    // Elevators and ladders
+    // Elevator ride arrival logic
     for (let i = 0; i < elevators.length; i++) {
       const elevator = elevators[i];
-      const ladder = ladders[i];
-
-      const lastY = elevator.group.position.y;
-      elevator.update(dt, playerPos);
-
-      if (elevatorRideActive && elevator === currentElevator) {
-        camera.position.y += elevator.group.position.y - lastY;
-      }
 
       if (elevatorRideActive && elevator === currentElevator && !elevator.traveling && !elevator.departing) {
         elevatorRideActive = false;
@@ -818,7 +919,7 @@ function animate() {
           stage = 3;
           const wrongAnswer = scrambledQuestions[3].answers[selectedFloorIndex];
           pendingDeathReason = `Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`;
-        } else if (Math.abs(targetY - (GAME_CONFIG.spawnY - 1.8)) < 0.1) {
+        } else if (Math.abs(targetY - B2_TOP_Y) < 0.1) {
           // Returned to top floor (should not happen via floor menu)
           player.enabled = true;
         } else {
@@ -829,26 +930,13 @@ function animate() {
         }
       }
 
-      // Ladder logic for incorrect elevators and wrong floor arrivals
-      const isWrongElevator = i !== correctElevatorIndex;
-      const isWrongFloorArrival = (i === correctElevatorIndex) && (Math.abs(elevator.group.position.y - B2_SECOND_Y) < 0.1);
-      const shouldLadderFall = isWrongElevator || isWrongFloorArrival;
-
-      if (shouldLadderFall && elevator.doorOpen > 0.05 && !ladder.active) {
-        ladder.spawn(elevator.isPlayerInside(playerPos));
-      }
-
+      // Ladder death check
+      const ladder = ladders[i];
       if (ladder.active) {
-        ladder.update(dt, elevator.doorOpen);
         if (!ladderHitNotified && ladder.isHittingPlayer(playerPos)) {
           ladderHitNotified = true;
           die(pendingDeathReason || 'A ladder fell on you!');
         }
-      }
-
-      if (elevator.doorOpen < 0.05) {
-        ladder.hide();
-        ladderHitNotified = false;
       }
 
       // Show floor menu inside the correct elevator at the top floor
@@ -883,15 +971,10 @@ function animate() {
       setPrompt('Press E to open the elevator');
     }
 
-    // Garage doors, trucks, and car
+    // Wrong-garage truck collision
     for (let i = 0; i < garageInstances.length; i++) {
       const g = garageInstances[i];
-      g.door.update(dt);
-
-      // Wrong-garage truck rams the player
       if (g.truck && g.truckActive) {
-        g.truck.group.position.x += 22 * dt;
-        g.truck.group.updateWorldMatrix(true, false);
         const truckBox = new THREE.Box3().setFromObject(g.truck.group);
         const playerBox = new THREE.Box3().setFromCenterAndSize(
           playerPos,
@@ -924,8 +1007,6 @@ function animate() {
       }
 
       if (finalTruck) {
-        finalTruck.group.position.z += finalTruckDir * 55 * dt;
-        finalTruck.group.updateWorldMatrix(true, false);
         const truckBox = new THREE.Box3().setFromObject(finalTruck.group);
         const carBox = new THREE.Box3().setFromObject(carInstance.group);
         if (truckBox.intersectsBox(carBox)) {
@@ -956,7 +1037,7 @@ function animate() {
     }
 
     // Prompt to enter the car
-    if (!drivingCar && carInstance) {
+    if (!drivingCar && carInstance && !carExitAnim) {
       const dist = playerPos.distanceTo(carInstance.group.position);
       if (dist < 3.5) {
         setPrompt('Press E to enter the car and drive to the goal');
@@ -973,6 +1054,13 @@ function animate() {
       const floors = collectFloors();
       const obstacles = collectObstacles();
       player.update(dt, obstacles, floors);
+    }
+
+    // Track safe ground height and kill on excessive falls
+    if (player.canJump) {
+      lastGroundY = playerPos.y;
+    } else if (player.velocity.y < 0 && lastGroundY - playerPos.y > MAX_FALL_DISTANCE) {
+      die('You fell too far.');
     }
   }
 

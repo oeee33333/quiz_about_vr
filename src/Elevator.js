@@ -160,7 +160,7 @@ export class Elevator {
     const d = this.depth / 2;
     const h = this.height;
     const t = this.thick;
-    const guard = 2.5; // extra thickness outward to stop fast players tunneling through
+    const guard = 0.5; // extra thickness outward to stop fast players tunneling through
 
     // Back wall (thickened outward, away from interior)
     boxes.push(this._worldBox(

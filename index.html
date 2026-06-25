@@ -69,7 +69,7 @@
     }
     #floor-buttons button:hover { background: #005f9e; }
 
-    #death-screen, #complete-screen {
+    #complete-screen {
       position: absolute; inset: 0;
       display: none;
       flex-direction: column; justify-content: center; align-items: center;
@@ -79,7 +79,28 @@
       text-align: center;
       padding: 2rem;
     }
-    #death-screen.show, #complete-screen.show { display: flex; }
+    #complete-screen.show { display: flex; }
+
+    #death-screen {
+      position: absolute; inset: 0;
+      display: none;
+      flex-direction: column; justify-content: center; align-items: center;
+      background: transparent;
+      color: #fff;
+      z-index: 40;
+      text-align: center;
+      padding: 2rem;
+      pointer-events: none;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+    }
+    #death-screen.show { display: flex; }
+    #death-screen h1,
+    #death-screen .reason,
+    #death-screen .hint {
+      background: rgba(0,0,0,0.55);
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+    }
     #death-screen h1 { color: #ff5555; margin: 0 0 0.5rem; }
     #complete-screen h1 { color: #55ff55; margin: 0 0 0.5rem; }
     #death-screen p, #complete-screen p { max-width: 520px; margin: 0.4rem 0; color: #ddd; line-height: 1.5; }

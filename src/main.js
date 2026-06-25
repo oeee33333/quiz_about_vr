@@ -1,9 +1,13 @@
+
 import * as THREE from 'three';
 import { Player } from './Player.js';
 import { HingeDoor } from './HingeDoor.js';
 import { ParkourStep } from './ParkourStep.js';
 import { Elevator } from './Elevator.js';
 import { Ladder } from './Ladder.js';
+import { GarageDoor } from './GarageDoor.js';
+import { Car } from './Car.js';
+import { Truck } from './Truck.js';
 import { PLAYER_HEIGHT, PLAYER_RADIUS, WORLD_SIZE } from './constants.js';
 import { GAME_CONFIG } from './gameConfig.js';
 
@@ -84,6 +88,13 @@ let elevatorRideActive = false;
 let selectedFloorIndex = -1;
 let ladderHitNotified = false;
 let groundFloorArrived = false;
+
+let garageDoors = [];
+let garageInstances = [];
+let correctGarageIndex = -1;
+let carInstance = null;
+let drivingCar = false;
+const GOAL_X = 110;
 
 const SPAWN_POS = new THREE.Vector3(-40, GAME_CONFIG.spawnY + PLAYER_HEIGHT, 0);
 const SPAWN_ROT = new THREE.Euler(0, -Math.PI / 2, 0, 'YXZ');
@@ -189,6 +200,10 @@ function isInsideElevatorLoose(elevator, playerPos) {
   );
 }
 
+function garageZFromIndex(index) {
+  return [-5, 0, 5][index];
+}
+
 // -----------------------------------------------------------------------------
 // Level building
 // -----------------------------------------------------------------------------
@@ -198,6 +213,11 @@ function clearLevel() {
   for (const step of parkourSteps) scene.remove(step.group);
   for (const door of doorInstances) scene.remove(door.group);
   for (const elevator of elevators) scene.remove(elevator.group);
+  for (const gd of garageDoors) scene.remove(gd.group);
+  for (const g of garageInstances) {
+    if (g.truck) scene.remove(g.truck.group);
+    if (g.car) scene.remove(g.car.group);
+  }
 
   levelMeshes = [];
   labelMeshes = [];
@@ -206,6 +226,8 @@ function clearLevel() {
   doorTriggered = [];
   elevators = [];
   ladders = [];
+  garageDoors = [];
+  garageInstances = [];
   trickyStepIndex = -1;
   pendingDeathReason = '';
   correctElevatorIndex = -1;
@@ -214,6 +236,9 @@ function clearLevel() {
   selectedFloorIndex = -1;
   ladderHitNotified = false;
   groundFloorArrived = false;
+  correctGarageIndex = -1;
+  carInstance = null;
+  drivingCar = false;
 }
 
 function buildParkour(q1) {
@@ -328,7 +353,8 @@ function buildSecondBuilding(q3, q4) {
   // Floors
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_TOP_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_SECOND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
-  createBox(scene, (b2MinX + b2MaxX) / 2, B2_GROUND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x777777);
+  // Extend the ground floor out to the garage area.
+  createBox(scene, (b2MinX + 95) / 2, B2_GROUND_Y, 0, 95 - b2MinX, 0.2, b2Z * 2, 0x777777);
 
   // Side walls
   createBox(scene, (b2MinX + b2MaxX) / 2, wallHeight / 2, -b2Z,
@@ -351,7 +377,7 @@ function buildSecondBuilding(q3, q4) {
 
   // Elevators hang outside the goal-side wall (x = b2MaxX), doors face spawn (-x)
   const elevatorX = 76.2; // front face flush with b2MaxX
-  const elevatorZs = [-4, 0, 4];
+  const elevatorZs = [-7, 0, 7];
   const elevatorGapHalf = 1.3;
 
   // Goal-side wall with gaps for the elevator doors
@@ -404,11 +430,60 @@ function buildSecondBuilding(q3, q4) {
   }
 }
 
+function buildGarages(q5) {
+  const garageZ = [-5, 0, 5];
+  const garageX = 82;
+  const garageDepth = 6;
+  const garageWidth = 5;
+  const garageHeight = 3.5;
+
+  correctGarageIndex = q5.answers.findIndex(a => a.correct);
+
+  for (let i = 0; i < 3; i++) {
+    const z = garageZ[i];
+
+    // Garage structure
+    createBox(scene, garageX, B2_GROUND_Y, z, garageDepth, 0.2, garageWidth, 0x555555);
+    createBox(scene, garageX, B2_GROUND_Y + garageHeight, z, garageDepth, 0.2, garageWidth, 0x555555);
+    createBox(scene, garageX - garageDepth / 2, B2_GROUND_Y + garageHeight / 2, z,
+      0.2, garageHeight, garageWidth, 0x666666);
+    createBox(scene, garageX, B2_GROUND_Y + garageHeight / 2, z - garageWidth / 2,
+      garageDepth, garageHeight, 0.2, 0x666666);
+    createBox(scene, garageX, B2_GROUND_Y + garageHeight / 2, z + garageWidth / 2,
+      garageDepth, garageHeight, 0.2, 0x666666);
+
+    // Garage door on the goal-side face, facing +x
+    const door = new GarageDoor(scene, garageX + garageDepth / 2, z, Math.PI / 2);
+    garageDoors.push(door);
+
+    // Label above the door
+    createLabel(scene, q5.answers[i].text,
+      garageX + garageDepth / 2 + 0.3, B2_GROUND_Y + garageHeight + 1.2, z,
+      Math.PI / 2, 1.6);
+
+    garageInstances.push({
+      door,
+      isCorrect: q5.answers[i].correct,
+      truck: null,
+      car: null,
+      triggered: false
+    });
+  }
+
+  // Question sign above the garages
+  createLabel(scene, q5.prompt,
+    garageX + garageDepth / 2 + 0.3, B2_GROUND_Y + garageHeight + 3.0, 0,
+    Math.PI / 2, 3.5, {
+      width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
+    });
+}
+
 function buildLevel() {
   clearLevel();
   buildParkour(scrambledQuestions[0]);
   buildBuildingAndDoors(scrambledQuestions[1]);
   buildSecondBuilding(scrambledQuestions[2], scrambledQuestions[3]);
+  buildGarages(scrambledQuestions[4]);
 }
 
 function scrambleAndBuild() {
@@ -523,6 +598,37 @@ document.addEventListener('keydown', (event) => {
 
   if (event.code === 'KeyE' && gameStarted && !dead && !completed && !elevatorRideActive) {
     const playerPos = camera.getWorldPosition(new THREE.Vector3());
+
+    // Enter the car if it is available
+    if (!drivingCar && carInstance) {
+      const dist = playerPos.distanceTo(carInstance.group.position);
+      if (dist < 3.5) {
+        drivingCar = true;
+        carInstance.enter(camera);
+        player.enabled = false;
+        return;
+      }
+    }
+
+    // Open a garage door
+    for (let i = 0; i < garageInstances.length; i++) {
+      const g = garageInstances[i];
+      if (!g.triggered && g.door.isPlayerInFront(playerPos)) {
+        g.triggered = true;
+        g.door.open();
+        if (g.isCorrect) {
+          g.car = new Car(scene, 81, garageZFromIndex(i), -Math.PI / 2, 0xcc2222);
+          carInstance = g.car;
+          setPrompt('Get in the car and drive to the goal');
+        } else {
+          g.truck = new Truck(scene, 81, garageZFromIndex(i), Math.PI / 2);
+          g.truckActive = true;
+        }
+        return;
+      }
+    }
+
+    // Open an elevator
     for (const elevator of elevators) {
       if (elevator.isPlayerAtFront(playerPos) && !elevator.traveling && !elevator.departing) {
         elevator.openDoors();
@@ -614,6 +720,7 @@ function animate() {
     // Stage progression
     if (stage === 0 && playerPos.x > -16) stage = 1;
     if (stage === 1 && playerPos.x > 52) stage = 2;
+    if (stage === 3 && groundFloorArrived) stage = 4;
 
     // Parkour step updates and trap detection
     for (let i = 0; i < parkourSteps.length; i++) {
@@ -665,10 +772,10 @@ function animate() {
           // Returned to top floor (should not happen via floor menu)
           player.enabled = true;
         } else {
-          // Ground floor: safe, let the player walk out
+          // Ground floor: safe, move on to garage stage
           groundFloorArrived = true;
           player.enabled = true;
-          setPrompt('Walk out of the building to win');
+          setPrompt('Find the correct garage');
         }
       }
 
@@ -724,15 +831,61 @@ function animate() {
     }
     if (atElevatorFront) {
       setPrompt('Press E to open the elevator');
-    } else {
+    }
+
+    // Garage doors, trucks, and car
+    for (let i = 0; i < garageInstances.length; i++) {
+      const g = garageInstances[i];
+      g.door.update(dt);
+
+      // Wrong-garage truck rams the player
+      if (g.truck && g.truckActive) {
+        g.truck.group.position.x += 22 * dt;
+        g.truck.group.updateWorldMatrix(true, false);
+        const truckBox = new THREE.Box3().setFromObject(g.truck.group);
+        const playerBox = new THREE.Box3().setFromCenterAndSize(
+          playerPos,
+          new THREE.Vector3(PLAYER_RADIUS * 2, PLAYER_HEIGHT, PLAYER_RADIUS * 2)
+        );
+        if (truckBox.intersectsBox(playerBox)) {
+          const wrongAnswer = scrambledQuestions[4].answers[i];
+          die(`Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`);
+        }
+      }
+    }
+
+    // Driving the car to the goal
+    if (drivingCar && carInstance) {
+      const throttle = Number(player.moveForward) - Number(player.moveBackward);
+      const steering = Number(player.moveLeft) - Number(player.moveRight);
+      carInstance.setInput(throttle, steering);
+      carInstance.update(dt);
+      if (carInstance.group.position.x >= GOAL_X) {
+        complete();
+      }
+    }
+
+    // Prompt when standing in front of a garage door
+    let atGarageFront = false;
+    for (let i = 0; i < garageInstances.length; i++) {
+      const g = garageInstances[i];
+      if (!g.triggered && g.door.isPlayerInFront(playerPos)) {
+        atGarageFront = true;
+        break;
+      }
+    }
+    if (atGarageFront && !drivingCar) {
+      setPrompt('Press E to open the garage');
+    } else if (!atElevatorFront && !drivingCar) {
       setPrompt('');
     }
 
-    // Ground-floor escape: complete when the player steps out of the elevator
-    if (groundFloorArrived && currentElevator &&
-        !isInsideElevatorLoose(currentElevator, playerPos) &&
-        Math.abs(playerPos.y - B2_GROUND_Y) < 2) {
-      complete();
+    // Prompt to enter the car
+    if (!drivingCar && carInstance) {
+      const dist = playerPos.distanceTo(carInstance.group.position);
+      if (dist < 3.5) {
+        setPrompt('Press E to enter the car and drive to the goal');
+      }
     }
 
     // Death by falling
@@ -741,9 +894,11 @@ function animate() {
     }
 
     // Physics
-    const floors = collectFloors();
-    const obstacles = collectObstacles();
-    player.update(dt, obstacles, floors);
+    if (!drivingCar) {
+      const floors = collectFloors();
+      const obstacles = collectObstacles();
+      player.update(dt, obstacles, floors);
+    }
   }
 
   renderer.render(scene, camera);

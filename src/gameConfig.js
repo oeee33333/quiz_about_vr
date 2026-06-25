@@ -18,6 +18,7 @@ export const GAME_CONFIG = {
   // Question 2: building doors (4 answers).
   // Question 3: second-building elevators (3 answers).
   // Question 4: correct-elevator floor menu (4 answers).
+  // Question 5: ground-floor garages (3 answers).
   questions: [
     {
       prompt: "Which of these is a mammal?",
@@ -50,6 +51,14 @@ export const GAME_CONFIG = {
         { text: "6", correct: false, explanation: "There are commonly considered to be 7 continents." },
         { text: "7", correct: true, explanation: "There are 7 continents: Africa, Antarctica, Asia, Australia, Europe, North America, and South America." },
         { text: "8", correct: false, explanation: "There are commonly considered to be 7 continents." }
+      ]
+    },
+    {
+      prompt: "Which of these is a primary color of light?",
+      answers: [
+        { text: "Red", correct: true, explanation: "Red is a primary color of light (RGB)." },
+        { text: "Green", correct: false, explanation: "A truck rams you for choosing the wrong garage." },
+        { text: "Yellow", correct: false, explanation: "A truck rams you for choosing the wrong garage." }
       ]
     }
   ]

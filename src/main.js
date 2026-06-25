@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Player } from './Player.js';
 import { HingeDoor } from './HingeDoor.js';
 import { ParkourStep } from './ParkourStep.js';
+import { Elevator } from './Elevator.js';
+import { Ladder } from './Ladder.js';
 import { PLAYER_HEIGHT, PLAYER_RADIUS, WORLD_SIZE } from './constants.js';
 import { GAME_CONFIG } from './gameConfig.js';
 
@@ -34,6 +36,8 @@ const deathScreen = document.getElementById('death-screen');
 const deathReason = document.getElementById('death-reason');
 const completeScreen = document.getElementById('complete-screen');
 const startScreen = document.getElementById('start-screen');
+const floorMenu = document.getElementById('floor-menu');
+const floorButtons = document.getElementById('floor-buttons');
 
 function setPrompt(text) {
   if (text) {
@@ -58,22 +62,35 @@ scene.add(camera);
 // Game state
 // -----------------------------------------------------------------------------
 let scrambledQuestions = [];
-let stage = 0; // 0 = parkour question, 1 = door question, 2 = done
+let stage = 0; // 0 parkour, 1 doors, 2 elevator choice, 3 floor choice, 4 done
 let dead = false;
 let completed = false;
 let gameStarted = false;
 
-// Level object references (cleared on respawn)
 let levelMeshes = [];
 let parkourSteps = [];
 let doorInstances = [];
 let doorTriggered = [];
+let elevators = [];
+let ladders = [];
 let labelMeshes = [];
 let trickyStepIndex = -1;
 let pendingDeathReason = '';
 
+let bridgeZ = 0;
+let correctElevatorIndex = -1;
+let currentElevator = null;
+let elevatorRideActive = false;
+let selectedFloorIndex = -1;
+let ladderHitNotified = false;
+let groundFloorArrived = false;
+
 const SPAWN_POS = new THREE.Vector3(-40, GAME_CONFIG.spawnY + PLAYER_HEIGHT, 0);
 const SPAWN_ROT = new THREE.Euler(0, -Math.PI / 2, 0, 'YXZ');
+
+const B2_TOP_Y = GAME_CONFIG.spawnY - 1.8;
+const B2_SECOND_Y = 18;
+const B2_GROUND_Y = 0;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -143,6 +160,12 @@ function createLabel(scene, text, x, y, z, rotY = 0, scale = 2, opts = {}) {
   return mesh;
 }
 
+function createLabelMesh(text, scale = 2, opts = {}) {
+  const tex = makeLabelTexture(text, opts);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
+  return new THREE.Mesh(new THREE.PlaneGeometry(scale * 2, scale), mat);
+}
+
 function createBox(scene, x, y, z, w, h, d, color, opacity = 1) {
   const mat = new THREE.MeshLambertMaterial({ color, transparent: opacity < 1, opacity });
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -157,6 +180,15 @@ function getBoxFloor(mesh) {
   return new THREE.Box3().setFromObject(mesh);
 }
 
+function isInsideElevatorLoose(elevator, playerPos) {
+  const local = elevator.group.worldToLocal(playerPos.clone());
+  return (
+    local.x > -1.5 && local.x < 1.5 &&
+    local.z > -1.5 && local.z < 1.5 &&
+    local.y > -0.5 && local.y < 3.5
+  );
+}
+
 // -----------------------------------------------------------------------------
 // Level building
 // -----------------------------------------------------------------------------
@@ -165,26 +197,31 @@ function clearLevel() {
   for (const mesh of labelMeshes) scene.remove(mesh);
   for (const step of parkourSteps) scene.remove(step.group);
   for (const door of doorInstances) scene.remove(door.group);
+  for (const elevator of elevators) scene.remove(elevator.group);
 
   levelMeshes = [];
   labelMeshes = [];
   parkourSteps = [];
   doorInstances = [];
   doorTriggered = [];
+  elevators = [];
+  ladders = [];
   trickyStepIndex = -1;
   pendingDeathReason = '';
+  correctElevatorIndex = -1;
+  currentElevator = null;
+  elevatorRideActive = false;
+  selectedFloorIndex = -1;
+  ladderHitNotified = false;
+  groundFloorArrived = false;
 }
 
 function buildParkour(q1) {
   const y0 = GAME_CONFIG.spawnY;
 
-  // Spawn platform
   createBox(scene, -40, y0, 0, 7, 0.2, 7, 0x888888);
-
-  // First step
   createBox(scene, -32, y0 - 0.5, 0, 5, 0.2, 5, 0xccaa66);
 
-  // Middle split: two larger platforms separated horizontally, one is wrong and slides away sideways
   const leftZ = -4;
   const rightZ = 4;
   const leftAnswer = q1.answers[0];
@@ -205,20 +242,15 @@ function buildParkour(q1) {
     trickyStepIndex = 1;
   }
 
-  // Slide outward (away from the centre path) when triggered
   leftStep.slideDir = -1;
   rightStep.slideDir = 1;
 
-  // Question sign spanning above both answer platforms
   createLabel(scene, q1.prompt, -26, y0 + 4.2, 0, -Math.PI / 2, 3.5, {
     width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
   });
-
-  // Answer labels on each platform
   createLabel(scene, leftAnswer.text, -26, y0 + 1.7, leftZ, -Math.PI / 2, 1.6);
   createLabel(scene, rightAnswer.text, -26, y0 + 1.7, rightZ, -Math.PI / 2, 1.6);
 
-  // Entrance platform leading into the building
   createBox(scene, -18, y0 - 1.5, 0, 5, 0.2, 5, 0x66cc66);
 }
 
@@ -229,24 +261,21 @@ function buildBuildingAndDoors(q2) {
   const buildingZ = 10;
   const wallHeight = 16;
 
-  // Main floor
   createBox(scene, (buildingMinX + buildingMaxX) / 2, floorY, 0,
     buildingMaxX - buildingMinX, 0.2, buildingZ * 2, 0x999999);
 
-  // Back wall with entrance gap at z=0
   createBox(scene, buildingMinX, floorY + wallHeight / 2, -6, 0.4, wallHeight, 8, 0x666666);
   createBox(scene, buildingMinX, floorY + wallHeight / 2, 6, 0.4, wallHeight, 8, 0x666666);
   createBox(scene, buildingMinX, floorY + wallHeight + 1.5, 0, 0.4, 3, 4, 0x666666);
 
-  // Side walls
   createBox(scene, (buildingMinX + buildingMaxX) / 2, floorY + wallHeight / 2, -buildingZ,
     buildingMaxX - buildingMinX, wallHeight, 0.4, 0x666666);
   createBox(scene, (buildingMinX + buildingMaxX) / 2, floorY + wallHeight / 2, buildingZ,
     buildingMaxX - buildingMinX, wallHeight, 0.4, 0x666666);
 
-  // Front wall: lower segments between door frames + one continuous strip above the doors
   const doorZs = [-4.5, -1.5, 1.5, 4.5];
   const wallOverlap = 1.15;
+  const lowerWallHeight = 2.6;
   const lowerWallSegments = [
     [-buildingZ, doorZs[0] - wallOverlap],
     [doorZs[0] + wallOverlap, doorZs[1] - wallOverlap],
@@ -254,7 +283,6 @@ function buildBuildingAndDoors(q2) {
     [doorZs[2] + wallOverlap, doorZs[3] - wallOverlap],
     [doorZs[3] + wallOverlap, buildingZ]
   ];
-  const lowerWallHeight = 2.6;
   for (const [zMin, zMax] of lowerWallSegments) {
     const centerZ = (zMin + zMax) / 2;
     const depth = zMax - zMin;
@@ -263,11 +291,9 @@ function buildBuildingAndDoors(q2) {
   createBox(scene, buildingMaxX, floorY + (wallHeight + lowerWallHeight) / 2, 0,
     0.4, wallHeight - lowerWallHeight, buildingZ * 2, 0x666666);
 
-  // Roof
   createBox(scene, (buildingMinX + buildingMaxX) / 2, floorY + wallHeight, 0,
     buildingMaxX - buildingMinX, 0.2, buildingZ * 2, 0x555555);
 
-  // Doors
   const doorZPositions = [-4.5, -1.5, 1.5, 4.5];
   for (let i = 0; i < 4; i++) {
     const door = new HingeDoor(scene, buildingMaxX, doorZPositions[i], -Math.PI / 2);
@@ -276,35 +302,113 @@ function buildBuildingAndDoors(q2) {
     doorTriggered.push(false);
   }
 
-
-  // Question sign above the door row
   createLabel(scene, q2.prompt, buildingMaxX - 0.3, floorY + 6.5, 0, -Math.PI / 2, 3.5, {
     width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
   });
-
-  // Answer labels above each door
   for (let i = 0; i < 4; i++) {
     createLabel(scene, q2.answers[i].text, buildingMaxX - 0.3, floorY + 3.6, doorZPositions[i], -Math.PI / 2, 1.6);
   }
 
-  // Build bridge behind the correct door (slightly lower so it doesn't clip through the wall/floor)
   const correctDoorIndex = q2.answers.findIndex(a => a.correct);
   const correctZ = doorZPositions[correctDoorIndex];
+  bridgeZ = correctZ;
   const bridgeStart = buildingMaxX - 0.5;
-  const bridgeEnd = 45;
+  const bridgeEnd = 55.5;
   const bridgeLength = bridgeEnd - bridgeStart;
   const bridgeY = floorY - 0.3;
   createBox(scene, (bridgeStart + bridgeEnd) / 2, bridgeY, correctZ, bridgeLength, 0.2, 5, 0x8b5a2b);
+}
 
-  // End platform
-  createBox(scene, 50, bridgeY, correctZ, 6, 0.2, 6, 0x55aa55);
-  createLabel(scene, 'Goal', 50, bridgeY + 2.4, correctZ, -Math.PI / 2, 1.5);
+function buildSecondBuilding(q3, q4) {
+  const b2MinX = 55;
+  const b2MaxX = 75;
+  const b2Z = 10;
+  const wallHeight = B2_TOP_Y + 3;
+
+  // Floors
+  createBox(scene, (b2MinX + b2MaxX) / 2, B2_TOP_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
+  createBox(scene, (b2MinX + b2MaxX) / 2, B2_SECOND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
+  createBox(scene, (b2MinX + b2MaxX) / 2, B2_GROUND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x777777);
+
+  // Side walls
+  createBox(scene, (b2MinX + b2MaxX) / 2, wallHeight / 2, -b2Z,
+    b2MaxX - b2MinX, wallHeight, 0.4, 0x666666);
+  createBox(scene, (b2MinX + b2MaxX) / 2, wallHeight / 2, b2Z,
+    b2MaxX - b2MinX, wallHeight, 0.4, 0x666666);
+
+  // Front wall (entrance side) with a vertical gap for the bridge
+  const entranceGapHalf = 2.6;
+  const entranceMin = bridgeZ - entranceGapHalf;
+  const entranceMax = bridgeZ + entranceGapHalf;
+  if (entranceMin > -b2Z) {
+    createBox(scene, b2MinX, wallHeight / 2, (-b2Z + entranceMin) / 2,
+      0.4, wallHeight, entranceMin + b2Z, 0x666666);
+  }
+  if (entranceMax < b2Z) {
+    createBox(scene, b2MinX, wallHeight / 2, (entranceMax + b2Z) / 2,
+      0.4, wallHeight, b2Z - entranceMax, 0x666666);
+  }
+
+  // Elevators hang outside the goal-side wall (x = b2MaxX), doors face spawn (-x)
+  const elevatorX = 76.2; // front face flush with b2MaxX
+  const elevatorZs = [-4, 0, 4];
+  const elevatorGapHalf = 1.3;
+
+  // Goal-side wall with gaps for the elevator doors
+  const wallSegments = [
+    [-b2Z, elevatorZs[0] - elevatorGapHalf],
+    [elevatorZs[0] + elevatorGapHalf, elevatorZs[1] - elevatorGapHalf],
+    [elevatorZs[1] + elevatorGapHalf, elevatorZs[2] - elevatorGapHalf],
+    [elevatorZs[2] + elevatorGapHalf, b2Z]
+  ];
+  for (const [zMin, zMax] of wallSegments) {
+    createBox(scene, b2MaxX, wallHeight / 2, (zMin + zMax) / 2,
+      0.4, wallHeight, zMax - zMin, 0x666666);
+  }
+
+  // Question sign for the elevator choice (outside, faces spawn/-x)
+  createLabel(scene, q3.prompt, b2MaxX + 0.3, B2_TOP_Y + 6.5, 0, -Math.PI / 2, 3.5, {
+    width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
+  });
+
+  correctElevatorIndex = q3.answers.findIndex(a => a.correct);
+
+  for (let i = 0; i < 3; i++) {
+    const isCorrect = q3.answers[i].correct;
+    const floors = isCorrect
+      ? q4.answers.map(a => ({
+          label: a.text,
+          targetY: a.correct ? B2_GROUND_Y : B2_SECOND_Y,
+          explanation: a.explanation,
+          correct: a.correct
+        }))
+      : [];
+
+    const elevator = new Elevator(scene, elevatorX, elevatorZs[i], floors);
+    elevator.group.position.y = B2_TOP_Y;
+    elevator.group.rotation.y = -Math.PI / 2;
+
+    if (isCorrect) {
+      const q4Label = createLabelMesh(q4.prompt, 1.0, {
+        width: 320, height: 80, font: 'bold 16px system-ui, sans-serif'
+      });
+      q4Label.position.set(0, 2.0, -1.08);
+      elevator.group.add(q4Label);
+    }
+    elevators.push(elevator);
+
+    const ladder = new Ladder(elevator.group);
+    ladders.push(ladder);
+
+    createLabel(scene, q3.answers[i].text, b2MaxX + 0.3, B2_TOP_Y + 4.2, elevatorZs[i], -Math.PI / 2, 1.6);
+  }
 }
 
 function buildLevel() {
   clearLevel();
   buildParkour(scrambledQuestions[0]);
   buildBuildingAndDoors(scrambledQuestions[1]);
+  buildSecondBuilding(scrambledQuestions[2], scrambledQuestions[3]);
 }
 
 function scrambleAndBuild() {
@@ -313,6 +417,30 @@ function scrambleAndBuild() {
     answers: shuffle(q.answers)
   }));
   buildLevel();
+}
+
+// -----------------------------------------------------------------------------
+// Elevator floor menu
+// -----------------------------------------------------------------------------
+function buildFloorMenu(elevator) {
+  floorButtons.innerHTML = '';
+  elevator.floors.forEach((floor, index) => {
+    const btn = document.createElement('button');
+    btn.textContent = `${index + 1}: ${floor.label}`;
+    btn.addEventListener('click', () => {
+      startElevatorTravel(floor.targetY, index);
+    });
+    floorButtons.appendChild(btn);
+  });
+}
+
+function startElevatorTravel(targetY, floorIndex) {
+  if (!currentElevator) return;
+  currentElevator.travelTo(targetY);
+  floorMenu.classList.add('hidden');
+  player.enabled = false;
+  elevatorRideActive = true;
+  selectedFloorIndex = floorIndex;
 }
 
 // -----------------------------------------------------------------------------
@@ -330,6 +458,12 @@ function respawn() {
   completed = false;
   stage = 0;
   pendingDeathReason = '';
+  currentElevator = null;
+  elevatorRideActive = false;
+  selectedFloorIndex = -1;
+  ladderHitNotified = false;
+  groundFloorArrived = false;
+  floorMenu.classList.add('hidden');
   deathScreen.classList.remove('show');
   completeScreen.classList.remove('show');
   startScreen.classList.add('hidden');
@@ -347,6 +481,7 @@ function die(reason) {
   deathReason.textContent = reason;
   deathScreen.classList.add('show');
   hideQuestionUI();
+  floorMenu.classList.add('hidden');
 }
 
 function complete() {
@@ -356,6 +491,7 @@ function complete() {
   player.controls.unlock();
   completeScreen.classList.add('show');
   hideQuestionUI();
+  floorMenu.classList.add('hidden');
 }
 
 // -----------------------------------------------------------------------------
@@ -378,8 +514,32 @@ player.controls.addEventListener('unlock', () => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.repeat) return;
+
   if (event.code === 'KeyR' && (dead || completed)) {
     respawn();
+    return;
+  }
+
+  if (event.code === 'KeyE' && gameStarted && !dead && !completed && !elevatorRideActive) {
+    const playerPos = camera.getWorldPosition(new THREE.Vector3());
+    for (const elevator of elevators) {
+      if (elevator.isPlayerAtFront(playerPos) && !elevator.traveling && !elevator.departing) {
+        elevator.openDoors();
+        currentElevator = elevator;
+        if (elevator.floors.length > 0) {
+          buildFloorMenu(elevator);
+        }
+        return;
+      }
+    }
+  }
+
+  if (event.code.startsWith('Digit') && !floorMenu.classList.contains('hidden')) {
+    const index = parseInt(event.code.slice(5), 10) - 1;
+    if (currentElevator && index >= 0 && index < currentElevator.floors.length) {
+      startElevatorTravel(currentElevator.floors[index].targetY, index);
+    }
   }
 });
 
@@ -398,6 +558,10 @@ function collectFloors() {
   for (const mesh of levelMeshes) floors.push(getBoxFloor(mesh));
   for (const step of parkourSteps) floors.push(step.getFloorBox());
 
+  for (const elevator of elevators) {
+    floors.push(elevator.getFloorBox());
+  }
+
   return floors;
 }
 
@@ -405,19 +569,27 @@ function collectObstacles() {
   const obstacles = [];
   const playerPos = camera.getWorldPosition(new THREE.Vector3());
 
-  // Building walls act as obstacles once the player is near/inside the building.
-  if (playerPos.x > -16) {
+  if (playerPos.x > -16 && playerPos.x < 52) {
     for (const mesh of levelMeshes) {
       const box = new THREE.Box3().setFromObject(mesh);
       const size = new THREE.Vector3();
       box.getSize(size);
-      if (size.y > 1) {
-        obstacles.push(box);
-      }
+      if (size.y > 1) obstacles.push(box);
     }
   }
 
-  // Doors are intentionally NOT obstacles; the player pushes them open on contact.
+  if (playerPos.x > 52) {
+    for (const mesh of levelMeshes) {
+      const box = new THREE.Box3().setFromObject(mesh);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      if (size.y > 1) obstacles.push(box);
+    }
+  }
+
+  for (const elevator of elevators) {
+    obstacles.push(...elevator.getObstacleBoxes());
+  }
 
   return obstacles;
 }
@@ -440,20 +612,16 @@ function animate() {
 
   if (!dead && !completed) {
     // Stage progression
-    if (stage === 0 && playerPos.x > -16) {
-      stage = 1;
-    }
+    if (stage === 0 && playerPos.x > -16) stage = 1;
+    if (stage === 1 && playerPos.x > 52) stage = 2;
 
     // Parkour step updates and trap detection
     for (let i = 0; i < parkourSteps.length; i++) {
       const step = parkourSteps[i];
       step.update(dt, playerPos, player.velocity.y);
-
-      // Slide the wrong platform sideways once the player tries to land on it
       if (step.triggered) {
         step.group.position.z += (step.slideDir || 1) * 12 * dt;
       }
-
       if (step.triggered && i === trickyStepIndex && !pendingDeathReason) {
         const wrongAnswer = scrambledQuestions[0].answers[i];
         pendingDeathReason = `Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`;
@@ -473,14 +641,103 @@ function animate() {
       }
     }
 
+    // Elevators and ladders
+    for (let i = 0; i < elevators.length; i++) {
+      const elevator = elevators[i];
+      const ladder = ladders[i];
+
+      const lastY = elevator.group.position.y;
+      elevator.update(dt, playerPos);
+
+      if (elevatorRideActive && elevator === currentElevator) {
+        camera.position.y += elevator.group.position.y - lastY;
+      }
+
+      if (elevatorRideActive && elevator === currentElevator && !elevator.traveling && !elevator.departing) {
+        elevatorRideActive = false;
+        const targetY = currentElevator.targetY;
+        if (Math.abs(targetY - B2_SECOND_Y) < 0.1) {
+          // Wrong floor: ladder falls and kills
+          stage = 3;
+          const wrongAnswer = scrambledQuestions[3].answers[selectedFloorIndex];
+          pendingDeathReason = `Wrong answer: "${wrongAnswer.text}". ${wrongAnswer.explanation}`;
+        } else if (Math.abs(targetY - (GAME_CONFIG.spawnY - 1.8)) < 0.1) {
+          // Returned to top floor (should not happen via floor menu)
+          player.enabled = true;
+        } else {
+          // Ground floor: safe, let the player walk out
+          groundFloorArrived = true;
+          player.enabled = true;
+          setPrompt('Walk out of the building to win');
+        }
+      }
+
+      // Ladder logic for incorrect elevators and wrong floor arrivals
+      const isWrongElevator = i !== correctElevatorIndex;
+      const isWrongFloorArrival = (i === correctElevatorIndex) && (Math.abs(elevator.group.position.y - B2_SECOND_Y) < 0.1);
+      const shouldLadderFall = isWrongElevator || isWrongFloorArrival;
+
+      if (shouldLadderFall && elevator.doorOpen > 0.05 && !ladder.active) {
+        ladder.spawn(elevator.isPlayerInside(playerPos));
+      }
+
+      if (ladder.active) {
+        ladder.update(dt, elevator.doorOpen);
+        if (!ladderHitNotified && ladder.isHittingPlayer(playerPos)) {
+          ladderHitNotified = true;
+          die(pendingDeathReason || 'A ladder fell on you!');
+        }
+      }
+
+      if (elevator.doorOpen < 0.05) {
+        ladder.hide();
+        ladderHitNotified = false;
+      }
+
+      // Show floor menu inside the correct elevator at the top floor
+      if (i === correctElevatorIndex &&
+          !elevatorRideActive &&
+          !elevator.traveling &&
+          !elevator.departing &&
+          Math.abs(elevator.group.position.y - B2_TOP_Y) < 0.1 &&
+          isInsideElevatorLoose(elevator, playerPos) &&
+          elevator.doorOpen > 0.9 &&
+          elevator.isPlayerFacingDoor(camera)) {
+        floorMenu.classList.remove('hidden');
+        currentElevator = elevator;
+        setPrompt('');
+      } else if (i === correctElevatorIndex && floorMenu.classList.contains('hidden') === false && currentElevator === elevator) {
+        // Only hide if the conditions are no longer met
+        if (!isInsideElevatorLoose(elevator, playerPos) || elevator.doorOpen < 0.9) {
+          floorMenu.classList.add('hidden');
+        }
+      }
+    }
+
+    // Prompt when standing in front of an elevator
+    let atElevatorFront = false;
+    for (const elevator of elevators) {
+      if (elevator.isPlayerAtFront(playerPos) && !elevator.traveling && !elevator.departing && !elevatorRideActive) {
+        atElevatorFront = true;
+        break;
+      }
+    }
+    if (atElevatorFront) {
+      setPrompt('Press E to open the elevator');
+    } else {
+      setPrompt('');
+    }
+
+    // Ground-floor escape: complete when the player steps out of the elevator
+    if (groundFloorArrived && currentElevator &&
+        !isInsideElevatorLoose(currentElevator, playerPos) &&
+        Math.abs(playerPos.y - B2_GROUND_Y) < 2) {
+      complete();
+    }
+
     // Death by falling
     if (playerPos.y < GAME_CONFIG.fallDeathY) {
       die(pendingDeathReason || 'You fell. Choose more carefully next time.');
-    }
-
-    // Completion: reached the end platform
-    if (playerPos.x > 47 && Math.abs(playerPos.z) < 5) {
-      complete();
     }
 
     // Physics

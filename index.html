@@ -48,6 +48,27 @@
     #question-ui h2 { margin: 0 0 0.4rem; font-size: 1.15rem; }
     #question-ui p { margin: 0; font-size: 1rem; color: #eee; }
 
+    #floor-menu {
+      position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+      border-radius: 12px;
+      min-width: 260px;
+      z-index: 20;
+      text-align: center;
+    }
+    #floor-menu h3 { margin: 0 0 0.75rem; font-weight: 600; }
+    #floor-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+    #floor-buttons button {
+      padding: 0.6rem 0.9rem;
+      border: none; border-radius: 8px;
+      background: #007acc; color: #fff;
+      cursor: pointer; font-size: 0.95rem;
+    }
+    #floor-buttons button:hover { background: #005f9e; }
+
     #death-screen, #complete-screen {
       position: absolute; inset: 0;
       display: none;
@@ -151,6 +172,11 @@
     <p id="question-text"></p>
   </div>
 
+  <div id="floor-menu" class="hidden">
+    <h3>Select a floor</h3>
+    <div id="floor-buttons"></div>
+  </div>
+
   <div id="death-screen">
     <h1>You died!</h1>
     <p id="death-reason" class="reason"></p>
@@ -158,12 +184,10 @@
   </div>
 
   <div id="complete-screen">
-    <h1>Level complete!</h1>
-    <p>You reached the end of the prototype bridge.</p>
+    <h1>You escaped!</h1>
+    <p>You made it to the ground floor.</p>
     <p class="hint">Press <kbd>R</kbd> to play again with scrambled answers.</p>
   </div>
-
-  <div id="prompt" class="hidden"></div>
 
   <div id="debug-help">
     <strong>Controls</strong><br>

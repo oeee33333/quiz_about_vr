@@ -353,8 +353,28 @@ function buildSecondBuilding(q3, q4) {
   // Floors
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_TOP_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_SECOND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
-  // Extend the ground floor out to the garage area.
-  createBox(scene, (b2MinX + 95) / 2, B2_GROUND_Y, 0, 95 - b2MinX, 0.2, b2Z * 2, 0x777777);
+  // Extend the ground floor out to cover the road and the drive to the goal.
+  createBox(scene, (35 + 110) / 2, B2_GROUND_Y, 30, 110 - 35, 0.2, 120, 0x777777);
+
+  // Perpendicular 2-lane road between the garages (west) and the elevator building (east)
+  const roadZMin = -10;
+  const roadZMax = 110;
+  const roadCenterZ = (roadZMin + roadZMax) / 2;
+  const roadLength = roadZMax - roadZMin;
+  createBox(scene, 51, B2_GROUND_Y + 0.02, roadCenterZ, 6, 0.05, roadLength, 0x333333);
+  // Center divider
+  createBox(scene, 51, B2_GROUND_Y + 0.08, roadCenterZ, 0.15, 0.12, roadLength, 0xeeeeee);
+  // Edge lines
+  createBox(scene, 48, B2_GROUND_Y + 0.08, roadCenterZ, 0.12, 0.12, roadLength, 0xffffff);
+  createBox(scene, 54, B2_GROUND_Y + 0.08, roadCenterZ, 0.12, 0.12, roadLength, 0xffffff);
+
+  // Road barriers on both sides for z beyond the garages/building
+  const barrierZStart = 12;
+  const barrierZEnd = roadZMax;
+  const barrierCenterZ = (barrierZStart + barrierZEnd) / 2;
+  const barrierLength = barrierZEnd - barrierZStart;
+  createBox(scene, 45, B2_GROUND_Y + 0.6, barrierCenterZ, 0.4, 1.2, barrierLength, 0xffaa00);
+  createBox(scene, 57, B2_GROUND_Y + 0.6, barrierCenterZ, 0.4, 1.2, barrierLength, 0xffaa00);
 
   // Side walls
   createBox(scene, (b2MinX + b2MaxX) / 2, wallHeight / 2, -b2Z,
@@ -432,7 +452,7 @@ function buildSecondBuilding(q3, q4) {
 
 function buildGarages(q5) {
   const garageZ = [-5, 0, 5];
-  const garageX = 82;
+  const garageX = 42;
   const garageDepth = 6;
   const garageWidth = 5;
   const garageHeight = 3.5;
@@ -445,6 +465,7 @@ function buildGarages(q5) {
     // Garage structure
     createBox(scene, garageX, B2_GROUND_Y, z, garageDepth, 0.2, garageWidth, 0x555555);
     createBox(scene, garageX, B2_GROUND_Y + garageHeight, z, garageDepth, 0.2, garageWidth, 0x555555);
+    // Back wall on the spawn side (west)
     createBox(scene, garageX - garageDepth / 2, B2_GROUND_Y + garageHeight / 2, z,
       0.2, garageHeight, garageWidth, 0x666666);
     createBox(scene, garageX, B2_GROUND_Y + garageHeight / 2, z - garageWidth / 2,
@@ -606,6 +627,7 @@ document.addEventListener('keydown', (event) => {
         drivingCar = true;
         carInstance.enter(camera);
         player.enabled = false;
+        player.controls.unlock();
         return;
       }
     }
@@ -617,11 +639,11 @@ document.addEventListener('keydown', (event) => {
         g.triggered = true;
         g.door.open();
         if (g.isCorrect) {
-          g.car = new Car(scene, 81, garageZFromIndex(i), -Math.PI / 2, 0xcc2222);
+          g.car = new Car(scene, 39, garageZFromIndex(i), -Math.PI / 2, 0xcc2222);
           carInstance = g.car;
           setPrompt('Get in the car and drive to the goal');
         } else {
-          g.truck = new Truck(scene, 81, garageZFromIndex(i), Math.PI / 2);
+          g.truck = new Truck(scene, 39, garageZFromIndex(i), Math.PI / 2);
           g.truckActive = true;
         }
         return;
@@ -654,6 +676,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
 
 // -----------------------------------------------------------------------------
 // Physics helpers
@@ -857,7 +880,7 @@ function animate() {
     // Driving the car to the goal
     if (drivingCar && carInstance) {
       const throttle = Number(player.moveForward) - Number(player.moveBackward);
-      const steering = Number(player.moveLeft) - Number(player.moveRight);
+      const steering = Number(player.moveRight) - Number(player.moveLeft);
       carInstance.setInput(throttle, steering);
       carInstance.update(dt);
       if (carInstance.group.position.x >= GOAL_X) {

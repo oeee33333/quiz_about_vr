@@ -7,6 +7,7 @@ import { Car } from './Car.js';
 import { Truck } from './Truck.js';
 import { RoadBlock } from './RoadBlock.js';
 import { ParkourStep } from './ParkourStep.js';
+import { Ladder } from './Ladder.js';
 import { PLAYER_HEIGHT, PLAYER_RADIUS } from './constants.js';
 
 // ---------------------------------------------------------------------------
@@ -79,6 +80,10 @@ const roadBlocks = [
   new RoadBlock(scene, -4, 18, 1.5, 1.0, 3.0, Math.PI / 2),
 ];
 
+// Debug ladder that falls out of the elevator when the doors open
+const ladder = new Ladder(elevator.group);
+let ladderDebug = false;
+
 // Parkour test section: steps get higher; the last one moves away when you try to land on it
 const parkourSteps = [
   new ParkourStep(scene, -35, 15, 4.8, 4.8, 0.5),
@@ -103,6 +108,7 @@ const floorMenu = document.getElementById('floor-menu');
 const floorButtons = document.getElementById('floor-buttons');
 const startScreen = document.getElementById('start-screen');
 let elevatorRideActive = false;
+let ladderHitNotified = false;
 
 function setPrompt(text) {
   if (text) {
@@ -111,6 +117,15 @@ function setPrompt(text) {
   } else {
     promptEl.classList.add('hidden');
   }
+}
+
+const notifyEl = document.getElementById('notify');
+let notifyTimeout = null;
+function showNotify(text, duration = 2000) {
+  notifyEl.textContent = text;
+  notifyEl.classList.add('show');
+  clearTimeout(notifyTimeout);
+  notifyTimeout = setTimeout(() => notifyEl.classList.remove('show'), duration);
 }
 
 function buildFloorMenu() {
@@ -168,6 +183,15 @@ document.addEventListener('keydown', (event) => {
   // Debug close for garage door
   if (event.code === 'KeyC') {
     garage.close();
+    return;
+  }
+
+  // Toggle ladder-fall debug option
+  if (event.code === 'KeyL') {
+    ladderDebug = !ladderDebug;
+    ladderHitNotified = false;
+    if (!ladderDebug) ladder.hide();
+    showNotify(`Ladder debug ${ladderDebug ? 'ON' : 'OFF'}`);
     return;
   }
 
@@ -320,6 +344,19 @@ function animate() {
     hingeDoor.update(dt, playerPos);
     elevator.update(dt, playerPos);
     garage.update(dt);
+
+    if (ladderDebug) {
+      if (elevator.doorOpen > 0.05 && !ladder.active) {
+        ladder.spawn(elevator.isPlayerInside(playerPos));
+      }
+      ladder.update(dt, elevator.doorOpen);
+      if (!ladder.active) {
+        ladderHitNotified = false;
+      } else if (!ladderHitNotified && ladder.isHittingPlayer(playerPos)) {
+        ladderHitNotified = true;
+        showNotify('The ladder fell on you!', 3000);
+      }
+    }
 
     if (elevatorRideActive) {
       camera.position.y += elevator.group.position.y - lastElevatorY;

@@ -45,6 +45,21 @@
       text-align: center;
     }
     #floor-menu h3 { margin: 0 0 0.75rem; font-weight: 600; }
+
+    #notify {
+      position: absolute; left: 50%; top: 25%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 0.7rem 1.2rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      pointer-events: none;
+      z-index: 25;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #notify.show { opacity: 1; }
     #floor-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
     #floor-buttons button {
       padding: 0.6rem 0.9rem;
@@ -103,6 +118,7 @@
     <h3>Select a destination</h3>
     <div id="floor-buttons"></div>
   </div>
+  <div id="notify"></div>
   <div id="debug-help">
     <strong>Debug keys</strong><br>
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk<br>
@@ -112,6 +128,7 @@
     <kbd>1</kbd>-<kbd>4</kbd> select elevator floor<br>
     <kbd>R</kbd> reset hinge door<br>
     <kbd>C</kbd> close garage door (debug)<br>
+    <kbd>L</kbd> toggle elevator ladder debug<br>
     Mouse to look around
   </div>
   <div id="start-screen">

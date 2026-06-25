@@ -22,51 +22,51 @@ export const GAME_CONFIG = {
   // Question 6: final road lane (2 answers, left/right side of the road).
   questions: [
     {
-      prompt: "Which of these is a mammal?",
+      prompt: "Is a neural network a type of artificial intelligence?",
       answers: [
-        { text: "Dolphin", correct: true, explanation: "Dolphins are marine mammals, not fish." },
-        { text: "Shark", correct: false, explanation: "Sharks are fish, not mammals." }
+        { text: "Yes", correct: true, explanation: "Neural networks are a major family of AI algorithms inspired by the brain." },
+        { text: "No", correct: false, explanation: "Neural networks are one of the most common approaches used in modern AI." }
       ]
     },
     {
-      prompt: "What is the largest planet in our solar system?",
+      prompt: "Which of these is NOT a good task for AI prediction?",
       answers: [
-        { text: "Saturn", correct: false, explanation: "Saturn is big, but Jupiter is larger." },
-        { text: "Jupiter", correct: true, explanation: "Jupiter is the largest planet in our solar system." },
-        { text: "Neptune", correct: false, explanation: "Neptune is the eighth planet and smaller than Jupiter." },
-        { text: "Earth", correct: false, explanation: "Earth is the third planet and much smaller than Jupiter." }
+        { text: "Random coin flip", correct: true, explanation: "A fair coin flip is purely random, so no pattern exists for AI to learn." },
+        { text: "Weather", correct: false, explanation: "Weather is hard to predict, but AI can use real sensor data to improve forecasts." },
+        { text: "Stock prices", correct: false, explanation: "AI models are often used to analyze market trends, even though results are uncertain." },
+        { text: "Medical diagnosis", correct: false, explanation: "AI can assist doctors by recognizing patterns in scans and test results." }
       ]
     },
     {
-      prompt: "Which gas do plants absorb from the atmosphere?",
+      prompt: "What is NOT needed to use a pretrained AI model?",
       answers: [
-        { text: "Carbon dioxide", correct: true, explanation: "Plants use carbon dioxide for photosynthesis." },
-        { text: "Oxygen", correct: false, explanation: "Plants release oxygen, they do not absorb it for photosynthesis." },
-        { text: "Nitrogen", correct: false, explanation: "Most plants cannot use atmospheric nitrogen directly." }
+        { text: "Training data", correct: true, explanation: "A pretrained model has already learned; you only need it if you want to retrain or fine-tune." },
+        { text: "Model weights", correct: false, explanation: "The weights store what the model has learned and are required to run it." },
+        { text: "Input to predict", correct: false, explanation: "You need some input data for the model to make a prediction." }
       ]
     },
     {
-      prompt: "How many continents are there on Earth?",
+      prompt: "What is overfitting in machine learning?",
       answers: [
-        { text: "5", correct: false, explanation: "There are commonly considered to be 7 continents." },
-        { text: "6", correct: false, explanation: "There are commonly considered to be 7 continents." },
-        { text: "7", correct: true, explanation: "There are 7 continents: Africa, Antarctica, Asia, Australia, Europe, North America, and South America." },
-        { text: "8", correct: false, explanation: "There are commonly considered to be 7 continents." }
+        { text: "Memorizing training data but failing on new data", correct: true, explanation: "Overfitting means the model learns the training examples too closely and generalizes poorly." },
+        { text: "Being too simple to learn any pattern", correct: false, explanation: "That is underfitting, not overfitting." },
+        { text: "Training loss going up over time", correct: false, explanation: "Rising training loss usually means the model is not learning, not overfitting." },
+        { text: "Using too little training data", correct: false, explanation: "Small datasets can cause overfitting, but overfitting itself is poor generalization to new data." }
       ]
     },
     {
-      prompt: "Which of these is a primary color of light?",
+      prompt: "Which scenario is an example of reinforcement learning?",
       answers: [
-        { text: "Red", correct: true, explanation: "Red is a primary color of light (RGB)." },
-        { text: "Green", correct: false, explanation: "A truck rams you for choosing the wrong garage." },
-        { text: "Yellow", correct: false, explanation: "A truck rams you for choosing the wrong garage." }
+        { text: "A robot learning to walk by trial and reward", correct: true, explanation: "Reinforcement learning learns by taking actions and receiving rewards or penalties." },
+        { text: "A model trained on labeled cat photos", correct: false, explanation: "That is supervised learning, because the data already has correct labels." },
+        { text: "Grouping customers by purchase habits", correct: false, explanation: "That is unsupervised learning, because there are no predefined labels." }
       ]
     },
     {
-      prompt: "What is 2 + 2?",
+      prompt: "What is a major risk of training AI on historical data?",
       answers: [
-        { text: "4", correct: true, explanation: "A high-speed truck hits you on the wrong lane." },
-        { text: "5", correct: false, explanation: "A high-speed truck hits you on the wrong lane." }
+        { text: "It can learn and repeat past biases", correct: true, explanation: "If the historical data contains unfair patterns, the AI may copy them in its decisions." },
+        { text: "It can become outdated and miss recent trends", correct: false, explanation: "That is a real concern, but the bigger ethical risk is that old biases get baked into the model." }
       ]
     }
   ]

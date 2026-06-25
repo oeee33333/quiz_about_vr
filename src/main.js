@@ -596,6 +596,7 @@ function respawn() {
   selectedFloorIndex = -1;
   ladderHitNotified = false;
   groundFloorArrived = false;
+  drivingCar = false;
   floorMenu.classList.add('hidden');
   deathScreen.classList.remove('show');
   completeScreen.classList.remove('show');
@@ -608,6 +609,11 @@ function respawn() {
 
 function die(reason) {
   if (dead || completed) return;
+  if (drivingCar && carInstance) {
+    carInstance.exit(camera);
+    scene.add(camera);
+    drivingCar = false;
+  }
   dead = true;
   player.enabled = false;
   player.controls.unlock();
@@ -1060,7 +1066,7 @@ function animate() {
     if (player.canJump) {
       lastGroundY = playerPos.y;
     } else if (player.velocity.y < 0 && lastGroundY - playerPos.y > MAX_FALL_DISTANCE) {
-      die('You fell too far.');
+      die(pendingDeathReason || 'You fell too far.');
     }
   }
 

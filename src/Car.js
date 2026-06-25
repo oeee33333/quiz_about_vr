@@ -128,7 +128,7 @@ export class Car {
     this.group.position.addScaledVector(forward, this.speed * dt);
 
     // Keep within world
-    const limit = 95;
+    const limit = 150;
     this.group.position.x = Math.max(-limit, Math.min(limit, this.group.position.x));
     this.group.position.z = Math.max(-limit, Math.min(limit, this.group.position.z));
 

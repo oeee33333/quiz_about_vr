@@ -96,7 +96,13 @@ let correctGarageIndex = -1;
 let carInstance = null;
 let drivingCar = false;
 let roadBlocks = [];
-const GOAL_X = 110;
+let finalTruck = null;
+let finalTruckSpawned = false;
+let finalTruckDir = 0;
+const GOAL_Z = 110;
+const FINAL_TRUCK_Z_SPAWN = -20;
+const FINAL_TRUCK_TRIGGER_Z = 50;
+const FINAL_SIGN_Z = 26;
 
 const SPAWN_POS = new THREE.Vector3(-40, GAME_CONFIG.spawnY + PLAYER_HEIGHT, 0);
 const SPAWN_ROT = new THREE.Euler(0, -Math.PI / 2, 0, 'YXZ');
@@ -243,6 +249,9 @@ function clearLevel() {
   carInstance = null;
   drivingCar = false;
   roadBlocks = [];
+  finalTruck = null;
+  finalTruckSpawned = false;
+  finalTruckDir = 0;
 }
 
 function buildParkour(q1) {
@@ -358,7 +367,7 @@ function buildSecondBuilding(q3, q4) {
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_TOP_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
   createBox(scene, (b2MinX + b2MaxX) / 2, B2_SECOND_Y, 0, b2MaxX - b2MinX, 0.2, b2Z * 2, 0x999999);
   // Extend the ground floor out to cover the road and the drive to the goal.
-  createBox(scene, (35 + 110) / 2, B2_GROUND_Y, 30, 110 - 35, 0.2, 120, 0x777777);
+  createBox(scene, (35 + 110) / 2, B2_GROUND_Y, 50, 110 - 35, 0.2, 160, 0x777777);
 
   // Perpendicular 2-lane road between the garages (west) and the elevator building (east)
   const roadZMin = -10;
@@ -455,6 +464,18 @@ function buildSecondBuilding(q3, q4) {
   }
 }
 
+function buildRoadMC(q6) {
+  // Sign at the 30% mark facing -z (toward the oncoming car).
+  // Left lane = +x side of the road, right lane = -x side.
+  createLabel(scene, q6.prompt, 51, B2_GROUND_Y + 5.5, FINAL_SIGN_Z, Math.PI, 3.0, {
+    width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
+  });
+  createLabel(scene, q6.answers[0].text, 54, B2_GROUND_Y + 3.5, FINAL_SIGN_Z, Math.PI, 1.8);
+  createLabel(scene, 'LEFT LANE', 54, B2_GROUND_Y + 5.0, FINAL_SIGN_Z, Math.PI, 1.0);
+  createLabel(scene, q6.answers[1].text, 48, B2_GROUND_Y + 3.5, FINAL_SIGN_Z, Math.PI, 1.8);
+  createLabel(scene, 'RIGHT LANE', 48, B2_GROUND_Y + 5.0, FINAL_SIGN_Z, Math.PI, 1.0);
+}
+
 function buildGarages(q5) {
   const garageZ = [-5, 0, 5];
   const garageX = 42;
@@ -510,6 +531,7 @@ function buildLevel() {
   buildBuildingAndDoors(scrambledQuestions[1]);
   buildSecondBuilding(scrambledQuestions[2], scrambledQuestions[3]);
   buildGarages(scrambledQuestions[4]);
+  buildRoadMC(scrambledQuestions[5]);
 }
 
 function scrambleAndBuild() {
@@ -644,7 +666,7 @@ document.addEventListener('keydown', (event) => {
         g.triggered = true;
         g.door.open();
         if (g.isCorrect) {
-          g.car = new Car(scene, 39, garageZFromIndex(i), -Math.PI / 2, 0xcc2222);
+          g.car = new Car(scene, 51, garageZFromIndex(i), Math.PI, 0xcc2222);
           carInstance = g.car;
           setPrompt('Get in the car and drive to the goal');
         } else {
@@ -888,7 +910,32 @@ function animate() {
       const steering = Number(player.moveRight) - Number(player.moveLeft);
       carInstance.setInput(throttle, steering);
       carInstance.update(dt, roadBlocks);
-      if (carInstance.group.position.x >= GOAL_X) {
+
+      // Final MC: spawn a high-speed truck on the wrong lane halfway down the road
+      if (!finalTruckSpawned && carInstance.group.position.z >= FINAL_TRUCK_TRIGGER_Z) {
+        finalTruckSpawned = true;
+        const q6 = scrambledQuestions[5];
+        // answers[0] = left lane (+x side), answers[1] = right lane (-x side)
+        const leftIsCorrect = q6.answers[0].correct;
+        finalTruckDir = 1;
+        // Truck travels from -z to +z on the wrong side of the road
+        const truckX = leftIsCorrect ? 48 : 54;
+        finalTruck = new Truck(scene, truckX, FINAL_TRUCK_Z_SPAWN, 0);
+      }
+
+      if (finalTruck) {
+        finalTruck.group.position.z += finalTruckDir * 55 * dt;
+        finalTruck.group.updateWorldMatrix(true, false);
+        const truckBox = new THREE.Box3().setFromObject(finalTruck.group);
+        const carBox = new THREE.Box3().setFromObject(carInstance.group);
+        if (truckBox.intersectsBox(carBox)) {
+          const q6 = scrambledQuestions[5];
+          const wrongAnswer = q6.answers.find(a => !a.correct);
+          die(`Wrong lane: "${wrongAnswer.text}". ${wrongAnswer.explanation}`);
+        }
+      }
+
+      if (carInstance.group.position.z >= GOAL_Z) {
         complete();
       }
     }

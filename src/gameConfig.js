@@ -19,6 +19,7 @@ export const GAME_CONFIG = {
   // Question 3: second-building elevators (3 answers).
   // Question 4: correct-elevator floor menu (4 answers).
   // Question 5: ground-floor garages (3 answers).
+  // Question 6: final road lane (2 answers, left/right side of the road).
   questions: [
     {
       prompt: "Which of these is a mammal?",
@@ -59,6 +60,13 @@ export const GAME_CONFIG = {
         { text: "Red", correct: true, explanation: "Red is a primary color of light (RGB)." },
         { text: "Green", correct: false, explanation: "A truck rams you for choosing the wrong garage." },
         { text: "Yellow", correct: false, explanation: "A truck rams you for choosing the wrong garage." }
+      ]
+    },
+    {
+      prompt: "What is 2 + 2?",
+      answers: [
+        { text: "4", correct: true, explanation: "A high-speed truck hits you on the wrong lane." },
+        { text: "5", correct: false, explanation: "A high-speed truck hits you on the wrong lane." }
       ]
     }
   ]

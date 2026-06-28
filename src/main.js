@@ -26,6 +26,10 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1));
 document.getElementById('game').appendChild(renderer.domElement);
 
+const textureLoader = new THREE.TextureLoader();
+const noPedestriansTexture = textureLoader.load('./no_pedestrians.png');
+noPedestriansTexture.colorSpace = THREE.SRGBColorSpace;
+
 const ambient = new THREE.AmbientLight(0xffffff, 0.7);
 scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 0.55);
@@ -469,15 +473,26 @@ function buildSecondBuilding(q3, q4) {
 }
 
 function buildRoadMC(q6) {
+  // No-pedestrians signs on both sides of the road at the question sign level
+  const signOffsets = [-1, 1];
+  for (const side of signOffsets) {
+    const noPedSign = new THREE.Mesh(
+      new THREE.PlaneGeometry(3, 3),
+      new THREE.MeshBasicMaterial({ map: noPedestriansTexture, transparent: true, side: THREE.DoubleSide })
+    );
+    noPedSign.position.set(51 + side * 6, B2_GROUND_Y + 3.5, FINAL_SIGN_Z);
+    noPedSign.rotation.y = Math.PI;
+    scene.add(noPedSign);
+    labelMeshes.push(noPedSign);
+  }
+
   // Sign at the 30% mark facing -z (toward the oncoming car).
   // Left lane = +x side of the road, right lane = -x side.
-  createLabel(scene, q6.prompt, 51, B2_GROUND_Y + 9.5, FINAL_SIGN_Z, Math.PI, 3.0, {
+  createLabel(scene, q6.prompt, 51, B2_GROUND_Y + 11.5, FINAL_SIGN_Z, Math.PI, 3.0, {
     width: 640, height: 160, font: 'bold 34px system-ui, sans-serif'
   });
   createLabel(scene, q6.answers[0].text, 54, B2_GROUND_Y + 7.5, FINAL_SIGN_Z, Math.PI, 1.8);
-  createLabel(scene, 'LEFT LANE', 54, B2_GROUND_Y + 9.0, FINAL_SIGN_Z, Math.PI, 1.0);
   createLabel(scene, q6.answers[1].text, 48, B2_GROUND_Y + 7.5, FINAL_SIGN_Z, Math.PI, 1.8);
-  createLabel(scene, 'RIGHT LANE', 48, B2_GROUND_Y + 9.0, FINAL_SIGN_Z, Math.PI, 1.0);
 
   // Big finish sign at the end of the road pointing -z
   createLabel(scene, 'FINISH', 51, B2_GROUND_Y + 10, GOAL_Z - 1, Math.PI, 7.0, {
@@ -626,6 +641,11 @@ function die(reason) {
 function complete() {
   if (dead || completed) return;
   completed = true;
+  if (drivingCar && carInstance) {
+    carInstance.exit(camera);
+    scene.add(camera);
+    drivingCar = false;
+  }
   player.enabled = false;
   player.controls.unlock();
   completeScreen.classList.add('show');
@@ -1005,30 +1025,53 @@ function animate() {
       carInstance.setInput(throttle, steering);
       carInstance.update(dt, roadBlocks);
 
-      // Final MC: spawn a high-speed truck on the wrong lane halfway down the road
-      if (!finalTruckSpawned && carInstance.group.position.z >= FINAL_TRUCK_TRIGGER_Z) {
-        finalTruckSpawned = true;
-        const q6 = scrambledQuestions[5];
-        // answers[0] = left lane (+x side), answers[1] = right lane (-x side)
-        const leftIsCorrect = q6.answers[0].correct;
-        finalTruckDir = 1;
-        // Truck travels from -z to +z on the wrong side of the road
-        const truckX = leftIsCorrect ? 48 : 54;
-        finalTruck = new Truck(scene, truckX, FINAL_TRUCK_Z_SPAWN, 0);
+      if (carInstance.group.position.z >= GOAL_Z) {
+        complete();
       }
+    }
 
-      if (finalTruck) {
-        const truckBox = new THREE.Box3().setFromObject(finalTruck.group);
+    // Final MC: spawn a high-speed truck on the wrong lane halfway down the road
+    const reachedTrigger = drivingCar && carInstance
+      ? carInstance.group.position.z >= FINAL_TRUCK_TRIGGER_Z
+      : (groundFloorArrived && playerPos.z >= FINAL_TRUCK_TRIGGER_Z);
+    if (!finalTruckSpawned && reachedTrigger) {
+      finalTruckSpawned = true;
+      const q6 = scrambledQuestions[5];
+      // answers[0] = left lane (+x side), answers[1] = right lane (-x side)
+      const leftIsCorrect = q6.answers[0].correct;
+      finalTruckDir = 1;
+      // Wrong-lane truck kept inside its lane without crossing the center line
+      const truckX = leftIsCorrect ? 49.5 : 52.5;
+      finalTruck = new Truck(scene, truckX, FINAL_TRUCK_Z_SPAWN, 0);
+    }
+
+    if (finalTruck) {
+      // When the player is walking, the truck homes in on them horizontally
+      if (!drivingCar) {
+        const targetX = playerPos.x;
+        const dx = targetX - finalTruck.group.position.x;
+        const homingSpeed = 25;
+        finalTruck.group.position.x += Math.sign(dx) * Math.min(Math.abs(dx), homingSpeed * dt);
+      }
+      finalTruck.group.position.z += finalTruckDir * 55 * dt;
+      finalTruck.group.updateWorldMatrix(true, false);
+  
+      const truckBox = new THREE.Box3().setFromObject(finalTruck.group);
+      if (drivingCar && carInstance) {
         const carBox = new THREE.Box3().setFromObject(carInstance.group);
         if (truckBox.intersectsBox(carBox)) {
           const q6 = scrambledQuestions[5];
           const wrongAnswer = q6.answers.find(a => !a.correct);
           die(`Wrong lane: "${wrongAnswer.text}". ${wrongAnswer.explanation}`);
         }
-      }
-
-      if (carInstance.group.position.z >= GOAL_Z) {
-        complete();
+      } else {
+        const playerBox = new THREE.Box3().setFromCenterAndSize(
+          playerPos,
+          new THREE.Vector3(PLAYER_RADIUS * 2, PLAYER_HEIGHT, PLAYER_RADIUS * 2)
+        );
+        if (truckBox.intersectsBox(playerBox)) {
+          die('You were hit by a truck. Pedestrians are not allowed on this road — look at the no-pedestrians signs.');
+        }
       }
     }
 

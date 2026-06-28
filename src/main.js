@@ -394,8 +394,8 @@ function buildSecondBuilding(q3, q4) {
   const barrierZEnd = roadZMax;
   const barrierSpacing = 6;
   for (let bz = barrierZStart; bz <= barrierZEnd; bz += barrierSpacing) {
-    roadBlocks.push(new RoadBlock(scene, 45, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
-    roadBlocks.push(new RoadBlock(scene, 57, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
+    roadBlocks.push(new RoadBlock(scene, 47, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
+    roadBlocks.push(new RoadBlock(scene, 55, bz, 1.2, 1.0, 0.6, 0, 0xff6600));
   }
 
   // Side walls

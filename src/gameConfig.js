@@ -22,51 +22,51 @@ export const GAME_CONFIG = {
   // Question 6: final road lane (2 answers, left/right side of the road).
   questions: [
     {
-      prompt: "Is a neural network a type of artificial intelligence?",
+      prompt: "Is this game a virtual reality (VR) experience?",
       answers: [
-        { text: "Yes", correct: true, explanation: "Neural networks are a major family of AI algorithms inspired by the brain." },
-        { text: "No", correct: false, explanation: "Neural networks are one of the most common approaches used in modern AI." }
+        { text: "No", correct: true, explanation: "This is a regular browser game played on a flat screen with a mouse and keyboard." },
+        { text: "Yes", correct: false, explanation: "VR requires a headset that surrounds your vision; this game runs in a normal web browser." }
       ]
     },
     {
-      prompt: "Which of these is NOT a good task for AI prediction?",
+      prompt: "Which of these is NOT a typical health risk associated with VR?",
       answers: [
-        { text: "Random coin flip", correct: true, explanation: "A fair coin flip is purely random, so no pattern exists for AI to learn." },
-        { text: "Weather", correct: false, explanation: "Weather is hard to predict, but AI can use real sensor data to improve forecasts." },
-        { text: "Stock prices", correct: false, explanation: "AI models are often used to analyze market trends, even though results are uncertain." },
-        { text: "Medical diagnosis", correct: false, explanation: "AI can assist doctors by recognizing patterns in scans and test results." }
+        { text: "Starvation", correct: true, explanation: "Starvation is not caused by using VR; it would only happen if someone forgot to eat for a very long time." },
+        { text: "Eye fatigue", correct: false, explanation: "Staring at screens close to the eyes for long sessions can tire the eyes." },
+        { text: "Neck pain", correct: false, explanation: "Headsets add weight and long sessions can strain the neck." },
+        { text: "Tripping over", correct: false, explanation: "Users can lose awareness of real surroundings and trip over furniture or cables." }
       ]
     },
     {
-      prompt: "What is NOT needed to use a pretrained AI model?",
+      prompt: "What does AR stand for?",
       answers: [
-        { text: "Training data", correct: true, explanation: "A pretrained model has already learned; you only need it if you want to retrain or fine-tune." },
-        { text: "Model weights", correct: false, explanation: "The weights store what the model has learned and are required to run it." },
-        { text: "Input to predict", correct: false, explanation: "You need some input data for the model to make a prediction." }
+        { text: "Augmented Reality", correct: true, explanation: "AR adds digital objects on top of the real world." },
+        { text: "Artificial Reality", correct: false, explanation: "The correct term is Augmented Reality." },
+        { text: "Advanced Rendering", correct: false, explanation: "Rendering is a graphics technique, not what AR stands for." }
       ]
     },
     {
-      prompt: "What is overfitting in machine learning?",
+      prompt: "Which of these is NOT an example of augmented reality?",
       answers: [
-        { text: "Memorizing training data but failing on new data", correct: true, explanation: "Overfitting means the model learns the training examples too closely and generalizes poorly." },
-        { text: "Being too simple to learn any pattern", correct: false, explanation: "That is underfitting, not overfitting." },
-        { text: "Training loss going up over time", correct: false, explanation: "Rising training loss usually means the model is not learning, not overfitting." },
-        { text: "Using too little training data", correct: false, explanation: "Small datasets can cause overfitting, but overfitting itself is poor generalization to new data." }
+        { text: "Exploring Mars in a fully immersed environment", correct: true, explanation: "A fully immersed digital environment blocks out the real world, which is virtual reality." },
+        { text: "A phone filter placing virtual furniture in your room", correct: false, explanation: "This overlays digital objects onto the real world through a camera, which is AR." },
+        { text: "A pilot's heads-up display showing flight data", correct: false, explanation: "Overlaying data onto the real view is a classic AR use case." },
+        { text: "A museum app showing a dinosaur over real bones", correct: false, explanation: "Adding digital content on top of a real exhibit is augmented reality." }
       ]
     },
     {
-      prompt: "Which scenario is an example of reinforcement learning?",
+      prompt: "What is one way to reduce motion sickness in VR?",
       answers: [
-        { text: "A robot learning to walk by trial and reward", correct: true, explanation: "Reinforcement learning learns by taking actions and receiving rewards or penalties." },
-        { text: "A model trained on labeled cat photos", correct: false, explanation: "That is supervised learning, because the data already has correct labels." },
-        { text: "Grouping customers by purchase habits", correct: false, explanation: "That is unsupervised learning, because there are no predefined labels." }
+        { text: "Keep the display fast and responsive to head movement", correct: true, explanation: "Low delay and smooth motion help prevent the conflict between what the eyes see and the inner ear feels." },
+        { text: "Make the headset heavier", correct: false, explanation: "A heavier headset would add neck strain, not reduce motion sickness." },
+        { text: "Block all sounds from the real world", correct: false, explanation: "Sound is not the main cause of motion sickness; visual lag is." }
       ]
     },
     {
-      prompt: "What is a major risk of training AI on historical data?",
+      prompt: "For a driving assist application, which technology should be used?",
       answers: [
-        { text: "It can learn and repeat past biases", correct: true, explanation: "If the historical data contains unfair patterns, the AI may copy them in its decisions." },
-        { text: "It can become outdated and miss recent trends", correct: false, explanation: "That is a real concern, but the bigger ethical risk is that old biases get baked into the model." }
+        { text: "AR", correct: true, explanation: "AR can overlay directions on the real road without blocking the driver's view." },
+        { text: "VR", correct: false, explanation: "VR would block the real world, making it dangerous to use while driving." }
       ]
     }
   ]
